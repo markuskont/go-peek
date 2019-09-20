@@ -17,7 +17,7 @@ type Asset struct {
 	NetSegment *NetSegment
 }
 
-func (a Asset) SetSegment(s *NetSegment) *Asset {
+func (a *Asset) SetSegment(s *NetSegment) *Asset {
 	a.NetSegment = s
-	return &a
+	return a
 }

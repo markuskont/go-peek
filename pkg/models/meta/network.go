@@ -50,9 +50,25 @@ type Network struct {
 	Team         string    `json:"Team"`
 }
 
+func (n Network) Shorthand() (*NetSegment, *NetSegment) {
+	return &NetSegment{
+			ID:   n.ID,
+			net:  n.IPv4,
+			Name: n.Name,
+		}, &NetSegment{
+			ID:   n.ID,
+			net:  n.IPv6,
+			Name: n.Name,
+		}
+}
+
 // NetSegment is a shorthand representation of Network, more suitable to be used in de-normalized logging
 type NetSegment struct {
-	ID int `json:"id"`
-	net.IPNet
+	ID   int    `json:"id"`
 	Name string `json:"name"`
+	VLAN string `json:"vlan"`
+	net  net.IPNet
 }
+
+func (n NetSegment) String() string          { return n.net.String() }
+func (n NetSegment) Contains(ip net.IP) bool { return n.net.Contains(ip) }
