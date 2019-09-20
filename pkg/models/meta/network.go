@@ -19,8 +19,21 @@ type NetworkPandasExport struct {
 }
 
 func (n NetworkPandasExport) Extract() []*Network {
-	items := 0
-	list := make([]*Network, items)
+	list := make([]*Network, 0)
+	for id, name := range n.Name {
+		net := &Network{
+			Name:         name,
+			ID:           id,
+			Abbreviation: n.Abbreviation[id],
+			VLAN:         n.VLAN[id],
+			IPv4:         n.IPv4[id].IPNet,
+			IPv6:         n.IPv6[id].IPNet,
+			Desc:         n.Desc[id],
+			Whois:        n.Whois[id],
+			Team:         n.Team[id],
+		}
+		list = append(list, net)
+	}
 	return list
 }
 
