@@ -10,8 +10,8 @@ type Indicators struct {
 
 type Asset struct {
 	Host   string `json:"Host"`
-	Alias  string `json:"Alias,omitempty"`
-	Kernel string `json:"Kernel,omitempty"`
+	Alias  string `json:"Alias"`
+	Kernel string `json:"Kernel"`
 	IP     net.IP `json:"IP"`
 	Indicators
 	NetSegment *NetSegment
