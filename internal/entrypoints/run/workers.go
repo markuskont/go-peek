@@ -3,12 +3,15 @@ package run
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"sync"
+	"time"
 
 	"github.com/ccdcoe/go-peek/pkg/intel"
 	"github.com/ccdcoe/go-peek/pkg/intel/wise"
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
+	"github.com/ccdcoe/go-peek/pkg/trackers"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -35,6 +38,29 @@ func spawnWorkers(
 			return true
 		}
 		return false
+	}()
+	logSrcTracker := func() *trackers.Deadman {
+		if viper.GetBool("processor.deadman") {
+			log.Debug("Deadman detector enabled for log sources, configuring")
+			d, err := trackers.NewDeadman(&trackers.DeadmanConfig{
+				CheckInterval: 5 * time.Second,
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+			go func() {
+				for e := range d.Events() {
+					switch event := e.(type) {
+					case trackers.AssetFirstSeenOnWire:
+						log.Info(event.String())
+					default:
+						log.Debugf("Unknown tracker item %s from deadman", reflect.TypeOf(e))
+					}
+				}
+			}()
+			return d
+		}
+		return nil
 	}()
 	globalAssetCache, err := intel.NewGlobalCache(&intel.Config{
 		Wise: func() *wise.Config {
@@ -95,6 +121,12 @@ func spawnWorkers(
 						continue loop
 					}
 					msg.Time = e.Time()
+					if logSrcTracker != nil {
+						logSrcTracker.Send(trackers.TrackItem{
+							Timestamp: msg.Time,
+							Name:      e.Sender(),
+						})
+					}
 					if noparse {
 						tx <- msg
 						continue loop

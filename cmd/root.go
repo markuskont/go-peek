@@ -128,6 +128,10 @@ func initProcessorConfig() {
 		`Anonymize messages. Simple method by replacing host names with aliases`)
 	viper.BindPFlag("processor.anonymize", rootCmd.PersistentFlags().Lookup("proc-anon"))
 
+	rootCmd.PersistentFlags().Bool("proc-deadman", false,
+		`Enable deadman processor. Emits a new events whenever new assets are detected from events, or if known asset event rate falls below threshold.`)
+	viper.BindPFlag("processor.deadman", rootCmd.PersistentFlags().Lookup("proc-deadman"))
+
 	rootCmd.PersistentFlags().String("proc-persist-json-assets", "assets.json",
 		`File to store asset information in json format. 
 		Specify name to be stored in working dir or valid file path for custom location.`)
