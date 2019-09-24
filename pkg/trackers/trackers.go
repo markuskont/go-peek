@@ -1,9 +1,8 @@
 package trackers
 
 import (
+	"container/list"
 	"context"
-	"fmt"
-	"os"
 	"sync"
 	"time"
 )
@@ -19,45 +18,80 @@ type TrackItem struct {
 }
 
 type EventMeasurement struct {
-	Name         string
-	Total        float64
-	MsgFrequency float64
-	Measurements [256]float64
-	Updated      time.Time
-	start        time.Time
-	elapsed      time.Duration
+	Name          string
+	Total         float64
+	LatestMsgFreq float64
+	Measurements  *list.List
+
+	Updated time.Time
+	start   time.Time
+	elapsed time.Duration
+	buflen  int
 }
 
-func (e *EventMeasurement) Update() *EventMeasurement {
+func NewEventMeasurement(name string, buflen int) *EventMeasurement {
+	if buflen < 100 {
+		buflen = 100
+	}
+	return &EventMeasurement{
+		Name:         name,
+		Measurements: list.New(),
+		start:        time.Now(),
+		Updated:      time.Now(),
+		buflen:       buflen,
+	}
+}
+
+// Increment is called whenever an event from asset is seen to increment total event count
+func (e *EventMeasurement) Increment() *EventMeasurement {
 	if e.start.IsZero() {
 		e.start = time.Now()
 	}
 	e.Updated = time.Now()
-	e.elapsed = time.Since(e.start)
 	e.Total++
-	e.MsgFrequency = e.Total / e.elapsed.Seconds()
+	return e.updatedFreq()
+}
+
+func (e *EventMeasurement) updatedFreq() *EventMeasurement {
+	e.elapsed = time.Since(e.start)
+	e.LatestMsgFreq = e.Total / e.elapsed.Seconds()
+	return e
+}
+
+// PeriodicUpdate maintains Measurements to calculate mean and standard deviation
+func (e *EventMeasurement) PeriodicUpdate() *EventMeasurement {
+	e.updatedFreq()
+	if e.Measurements.Len() >= e.buflen {
+		e.Measurements.Remove(e.Measurements.Front())
+	}
+	e.Measurements.PushBack(e.LatestMsgFreq)
 	return e
 }
 
 type DeadmanConfig struct {
-	CheckInterval time.Duration
+	CheckInterval     time.Duration
+	MeasurementBuffer int
 }
 
 func (d *DeadmanConfig) Validate() error {
 	if d.CheckInterval == 0 {
 		d.CheckInterval = 5 * time.Second
 	}
+	if d.MeasurementBuffer < 100 {
+		d.MeasurementBuffer = 100
+	}
 	return nil
 }
 
 type Deadman struct {
-	mu     *sync.Mutex
-	wg     *sync.WaitGroup
-	data   map[string]*EventMeasurement
-	rx     chan TrackItem
-	tx     chan interface{}
-	active bool
-	check  time.Duration
+	mu      *sync.Mutex
+	wg      *sync.WaitGroup
+	data    map[string]*EventMeasurement
+	rx      chan TrackItem
+	tx      chan interface{}
+	active  bool
+	check   time.Duration
+	samples int
 }
 
 func NewDeadman(c *DeadmanConfig) (*Deadman, error) {
@@ -65,13 +99,14 @@ func NewDeadman(c *DeadmanConfig) (*Deadman, error) {
 		return nil, err
 	}
 	d := &Deadman{
-		mu:     &sync.Mutex{},
-		wg:     &sync.WaitGroup{},
-		rx:     make(chan TrackItem, InBufferLen),
-		tx:     make(chan interface{}, OutBufferLen),
-		data:   make(map[string]*EventMeasurement),
-		active: true,
-		check:  c.CheckInterval,
+		mu:      &sync.Mutex{},
+		wg:      &sync.WaitGroup{},
+		rx:      make(chan TrackItem, InBufferLen),
+		tx:      make(chan interface{}, OutBufferLen),
+		data:    make(map[string]*EventMeasurement),
+		active:  true,
+		check:   c.CheckInterval,
+		samples: c.MeasurementBuffer,
 	}
 	go func(ctx context.Context) {
 		d.wg.Add(1)
@@ -90,21 +125,19 @@ func NewDeadman(c *DeadmanConfig) (*Deadman, error) {
 				d.mu.Lock()
 				obj, ok := d.data[item.Name]
 				if !ok {
-					obj = &EventMeasurement{
-						Name:  item.Name,
-						start: time.Now(),
-					}
-					d.data[item.Name] = obj
+					obj = NewEventMeasurement(item.Name, d.samples)
+					d.data[item.Name] = obj.Increment()
 					d.txSend(AssetFirstSeenOnWire{
 						Timestamp: obj.Updated,
 						Name:      obj.Name,
 					})
 				}
+				obj.Increment()
 				d.mu.Unlock()
 			case <-check.C:
 				d.mu.Lock()
-				for _, v := range d.data {
-					fmt.Fprintf(os.Stdout, "%+v\n", v)
+				for _, obj := range d.data {
+					obj.PeriodicUpdate()
 				}
 				d.mu.Unlock()
 			case <-ctx.Done():
