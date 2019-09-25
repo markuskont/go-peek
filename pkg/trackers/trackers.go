@@ -1,6 +1,7 @@
 package trackers
 
 import (
+	"container/list"
 	"context"
 	"sync"
 	"time"
@@ -20,13 +21,14 @@ type TrackItem struct {
 }
 
 type EventMeasurement struct {
-	Name          string
-	Total         float64
-	LatestMsgFreq float64
+	Name string
+
+	// Linked list to keep last N observations
+	Sample *list.List
 
 	statistics.Welford
+	statistics.Measurement
 
-	Updated time.Time
 	start   time.Time
 	elapsed time.Duration
 	buflen  int
@@ -39,8 +41,12 @@ func NewEventMeasurement(name string, buflen int) *EventMeasurement {
 	return &EventMeasurement{
 		Name:    name,
 		start:   time.Now(),
-		Updated: time.Now(),
-		buflen:  buflen,
+		Welford: statistics.Welford{},
+		Measurement: statistics.Measurement{
+			Since:     time.Now(),
+			Timestamp: time.Now(),
+		},
+		buflen: buflen,
 	}
 }
 
@@ -49,7 +55,7 @@ func (e *EventMeasurement) Increment() *EventMeasurement {
 	if e.start.IsZero() {
 		e.start = time.Now()
 	}
-	e.Updated = time.Now()
+	//e.Updated = time.Now()
 	e.Total++
 	return e
 }
@@ -57,8 +63,10 @@ func (e *EventMeasurement) Increment() *EventMeasurement {
 // PeriodicUpdate maintains Measurements to calculate mean and standard deviation
 func (e *EventMeasurement) PeriodicUpdate() *EventMeasurement {
 	e.elapsed = time.Since(e.start)
-	e.LatestMsgFreq = e.Total / e.elapsed.Seconds()
-	e.Welford.Update(e.LatestMsgFreq)
+	/*
+		e.LatestMsgFreq = e.Total / e.elapsed.Seconds()
+		e.Welford.Update(e.LatestMsgFreq)
+	*/
 	return e
 }
 
@@ -122,8 +130,8 @@ func NewDeadman(c *DeadmanConfig) (*Deadman, error) {
 					obj = NewEventMeasurement(item.Name, d.samples)
 					d.data[item.Name] = obj.Increment()
 					d.txSend(AssetFirstSeenOnWire{
-						Timestamp: obj.Updated,
-						Name:      obj.Name,
+						//Timestamp: obj.Updated,
+						Name: obj.Name,
 					})
 				}
 				obj.Increment()
