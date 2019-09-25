@@ -1,10 +1,12 @@
 package trackers
 
 import (
-	"container/list"
 	"context"
 	"sync"
 	"time"
+
+	"github.com/ccdcoe/go-peek/pkg/statistics"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -21,7 +23,8 @@ type EventMeasurement struct {
 	Name          string
 	Total         float64
 	LatestMsgFreq float64
-	Measurements  *list.List
+
+	statistics.Welford
 
 	Updated time.Time
 	start   time.Time
@@ -34,11 +37,10 @@ func NewEventMeasurement(name string, buflen int) *EventMeasurement {
 		buflen = 100
 	}
 	return &EventMeasurement{
-		Name:         name,
-		Measurements: list.New(),
-		start:        time.Now(),
-		Updated:      time.Now(),
-		buflen:       buflen,
+		Name:    name,
+		start:   time.Now(),
+		Updated: time.Now(),
+		buflen:  buflen,
 	}
 }
 
@@ -49,22 +51,14 @@ func (e *EventMeasurement) Increment() *EventMeasurement {
 	}
 	e.Updated = time.Now()
 	e.Total++
-	return e.updatedFreq()
-}
-
-func (e *EventMeasurement) updatedFreq() *EventMeasurement {
-	e.elapsed = time.Since(e.start)
-	e.LatestMsgFreq = e.Total / e.elapsed.Seconds()
 	return e
 }
 
 // PeriodicUpdate maintains Measurements to calculate mean and standard deviation
 func (e *EventMeasurement) PeriodicUpdate() *EventMeasurement {
-	e.updatedFreq()
-	if e.Measurements.Len() >= e.buflen {
-		e.Measurements.Remove(e.Measurements.Front())
-	}
-	e.Measurements.PushBack(e.LatestMsgFreq)
+	e.elapsed = time.Since(e.start)
+	e.LatestMsgFreq = e.Total / e.elapsed.Seconds()
+	e.Welford.Update(e.LatestMsgFreq)
 	return e
 }
 
@@ -138,6 +132,7 @@ func NewDeadman(c *DeadmanConfig) (*Deadman, error) {
 				d.mu.Lock()
 				for _, obj := range d.data {
 					obj.PeriodicUpdate()
+					log.Tracef("%+v", obj)
 				}
 				d.mu.Unlock()
 			case <-ctx.Done():
