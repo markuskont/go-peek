@@ -1,5 +1,7 @@
 package statistics
 
+import "time"
+
 var (
 	OutlierScore = 4.0
 )
@@ -22,4 +24,17 @@ func Normalize(value, min, max float64) float64 { return (value - min) / (max - 
 func ValueIsOutlier(val, mean, stdDev float64) bool {
 	rng := OutlierScore * stdDev
 	return val > mean-rng || val < mean+rng
+}
+
+type Measurement struct {
+	Tags             map[string]string
+	Last, Current    float64
+	Rate             float64
+	Total            float64
+	Timestamp, Since time.Time
+	Period           time.Duration
+}
+
+func (m *Measurement) Calculate() *Measurement {
+	return m
 }
