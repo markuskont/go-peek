@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	InBufferLen  = 1000
+	InBufferLen  = 10000
 	OutBufferLen = 1000
 )
 
@@ -20,16 +20,38 @@ type TrackItem struct {
 	Timestamp time.Time
 }
 
+// Sample is a FIFO-like data structure for keeping a linked list of K values
+type Sample struct {
+	*list.List
+	K int
+}
+
+func NewSample(k int) *Sample {
+	return &Sample{
+		K:    k,
+		List: list.New(),
+	}
+}
+
+func (s *Sample) Push(item interface{}) *Sample {
+	if s.Len() == s.K {
+		s.Remove(s.Back())
+	}
+	s.PushFront(item)
+	return s
+}
+
 type EventMeasurement struct {
 	Name string
 
-	// Linked list to keep last N observations
-	Sample *list.List
-
 	statistics.Welford
-	statistics.Measurement
+	Counters *statistics.Measurement
+	Rates    *statistics.Measurement
 
-	start   time.Time
+	Counter float64
+	Zscore  float64
+
+	started time.Time
 	elapsed time.Duration
 	buflen  int
 }
@@ -40,10 +62,12 @@ func NewEventMeasurement(name string, buflen int) *EventMeasurement {
 	}
 	return &EventMeasurement{
 		Name:    name,
-		start:   time.Now(),
+		started: time.Now(),
 		Welford: statistics.Welford{},
-		Measurement: statistics.Measurement{
-			Since:     time.Now(),
+		Counters: &statistics.Measurement{
+			Timestamp: time.Now(),
+		},
+		Rates: &statistics.Measurement{
 			Timestamp: time.Now(),
 		},
 		buflen: buflen,
@@ -52,20 +76,34 @@ func NewEventMeasurement(name string, buflen int) *EventMeasurement {
 
 // Increment is called whenever an event from asset is seen to increment total event count
 func (e *EventMeasurement) Increment() *EventMeasurement {
-	if e.start.IsZero() {
-		e.start = time.Now()
+	if e.started.IsZero() {
+		e.started = time.Now()
 	}
-	//e.Updated = time.Now()
-	e.Total++
+	e.Counter++
 	return e
 }
 
 // PeriodicUpdate maintains Measurements to calculate mean and standard deviation
-func (e *EventMeasurement) PeriodicUpdate() *EventMeasurement {
-	e.elapsed = time.Since(e.start)
+func (e *EventMeasurement) PeriodicUpdate(gauge bool) *EventMeasurement {
+	e.elapsed = time.Since(e.started)
+	e.Counters.Update(e.Counter)
+	e.Counters.CalculateRatePerSec(time.Since(e.started))
+	e.Rates.Update(e.Counters.Rate)
+	e.Welford.Update(e.Counter)
+	if gauge {
+		e.Counter = 0.0
+	}
+	e.Zscore = statistics.AbsStandardize(e.Counter, e.Welford.Mean(), e.Welford.SdtDev())
 	/*
-		e.LatestMsgFreq = e.Total / e.elapsed.Seconds()
-		e.Welford.Update(e.LatestMsgFreq)
+		if status, isOutlier := statistics.ValueIsOutlier(
+			e.Counter,
+			e.Welford.Mean(),
+			e.Welford.SdtDev(),
+		); isOutlier && status == statistics.ValueBelowNormal || status == statistics.ValueAbnormal {
+			e.EventState = StateWarn
+		} else {
+			e.EventState = StateOk
+		}
 	*/
 	return e
 }
@@ -130,17 +168,24 @@ func NewDeadman(c *DeadmanConfig) (*Deadman, error) {
 					obj = NewEventMeasurement(item.Name, d.samples)
 					d.data[item.Name] = obj.Increment()
 					d.txSend(AssetFirstSeenOnWire{
-						//Timestamp: obj.Updated,
-						Name: obj.Name,
+						Timestamp: obj.started,
+						Name:      obj.Name,
 					})
 				}
 				obj.Increment()
 				d.mu.Unlock()
 			case <-check.C:
 				d.mu.Lock()
-				for _, obj := range d.data {
-					obj.PeriodicUpdate()
-					log.Tracef("%+v", obj)
+				for k, obj := range d.data {
+					obj.PeriodicUpdate(true)
+					log.Tracef(
+						"zscore: %.4f, mean: %.4f, dev: %.4f, k: %.1f, %s",
+						obj.Zscore,
+						obj.Welford.Mean(),
+						obj.SdtDev(),
+						obj.K(),
+						k,
+					)
 				}
 				d.mu.Unlock()
 			case <-ctx.Done():
