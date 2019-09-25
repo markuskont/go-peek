@@ -5,9 +5,7 @@ import "math"
 // Welford online algorithm allows us to accurately estimate sample mean and variance on a single pass
 // Normal method would require keeping full vector of data in memory which is not often feasible or practical in online scenario
 // Naive incremental method can be inaccruate at extreme values and even produce negative variance, which is impossible by definition
-type Welford struct {
-	mean, variance, s, k float64
-}
+type Welford struct{ mean, variance, s, k float64 }
 
 func (w *Welford) Update(item float64) *Welford {
 	w.k++
