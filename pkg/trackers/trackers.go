@@ -78,7 +78,7 @@ func (e *EventMeasurement) Increment() *EventMeasurement {
 	if e.started.IsZero() {
 		e.started = time.Now()
 	}
-	e.Counter += 1.0
+	e.Counter++
 	return e
 }
 
@@ -86,8 +86,8 @@ func (e *EventMeasurement) Increment() *EventMeasurement {
 func (e *EventMeasurement) PeriodicUpdate(gauge bool) *EventMeasurement {
 	e.elapsed = time.Since(e.started)
 	e.Counters.Update(e.Counter)
-	//e.Counters.CalculateRatePerSec(time.Since(e.started))
-	//e.Rates.Update(e.Counters.Rate)
+	e.Counters.CalculateRatePerSec(time.Since(e.started))
+	e.Rates.Update(e.Counters.Rate)
 	e.Welford.Update(e.Counter)
 	if gauge {
 		e.Counter = 0.0
