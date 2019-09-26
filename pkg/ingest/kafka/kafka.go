@@ -137,10 +137,5 @@ func NewConsumer(c *Config) (*Consumer, error) {
 	return obj, nil
 }
 
-func (c Consumer) Messages() <-chan *consumer.Message {
-	return c.messages
-}
-
-func (c Consumer) Errors() <-chan error {
-	return c.handle.Errors()
-}
+func (c Consumer) Messages() <-chan *consumer.Message { return c.messages }
+func (c Consumer) Errors() <-chan error               { return c.handle.Errors() }

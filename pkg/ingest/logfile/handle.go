@@ -53,7 +53,7 @@ func NewHandle(path Path, fn utils.StatFileIntervalFunc) (*Handle, error) {
 	}
 	defer h.Close()
 
-	first, last, lines, err := StatLogFileSinglePass(h)
+	first, last, lines, err := statLogFileSinglePass(h)
 
 	s.Lines = lines
 	if err != nil {

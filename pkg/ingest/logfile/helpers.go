@@ -88,7 +88,7 @@ func (h Path) Stat() (os.FileInfo, error) {
 	return handle.Stat()
 }
 
-func StatLogFileSinglePass(file io.Reader) (first, last []byte, lines int64, err error) {
+func statLogFileSinglePass(file io.Reader) (first, last []byte, lines int64, err error) {
 	var (
 		line  []byte
 		count int64
