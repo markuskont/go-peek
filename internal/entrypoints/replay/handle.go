@@ -61,7 +61,7 @@ func (h *Handle) seek(interval utils.Interval) error {
 
 	var (
 		ctx, cancel = context.WithCancel(context.Background())
-		lines       = logfile.DrainHandle(*h.Handle, ctx)
+		lines       = logfile.Drain(*h.Handle, ctx)
 		obj         events.KnownTimeStamps
 		count       int64
 		first, last bool
@@ -138,7 +138,7 @@ func (h *Handle) build() error {
 		// TODO: code may deadlock if h.Lines is not initialized properly
 	)
 
-	msgs := logfile.DrainHandle(*h.Handle, context.Background())
+	msgs := logfile.Drain(*h.Handle, context.Background())
 
 	log.WithFields(log.Fields{
 		"file":   h.Handle.Base(),

@@ -33,7 +33,7 @@ func AsyncStatAll(
 			go func() {
 				defer wg.Done()
 				for f := range rx {
-					s, err := newHandle(f, fn)
+					s, err := NewHandle(f, fn)
 					if err != nil {
 						errs <- err
 					}

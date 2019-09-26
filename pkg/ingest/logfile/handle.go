@@ -25,7 +25,7 @@ type Handle struct {
 	Atomic   events.Atomic
 }
 
-func newHandle(path Path, fn utils.StatFileIntervalFunc) (*Handle, error) {
+func NewHandle(path Path, fn utils.StatFileIntervalFunc) (*Handle, error) {
 	if fn == nil {
 		return nil, &utils.ErrFuncMissing{
 			Caller: fmt.Sprintf("Handle %s", path.String()),
@@ -99,7 +99,7 @@ func GetLine(h Handle, num int64) ([]byte, error) {
 	return nil, scanner.Err()
 }
 
-func DrainHandle(h Handle, ctx context.Context) <-chan *consumer.Message {
+func Drain(h Handle, ctx context.Context) <-chan *consumer.Message {
 	f, err := open(h.Path.String())
 	if err != nil {
 		return nil

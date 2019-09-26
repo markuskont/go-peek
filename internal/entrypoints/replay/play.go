@@ -43,7 +43,7 @@ func play(collection []*Sequence, interval utils.Interval) <-chan *consumer.Mess
 						"to":    fle.Offsets.End,
 						"diffs": len(fle.Diffs),
 					}).Debug("reading from input")
-					lines := logfile.DrainHandle(*fle.Handle, context.Background())
+					lines := logfile.Drain(*fle.Handle, context.Background())
 
 					log.Trace(fle.Diffs[0])
 					diffs := make(chan time.Duration, fle.Offsets.Len())

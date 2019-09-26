@@ -114,7 +114,7 @@ func doSplit(cmd *cobra.Command, args []string) {
 				for _, h := range s.Files {
 
 					var obj events.KnownTimeStamps
-					msgs := logfile.DrainHandle(*h.Handle, context.Background())
+					msgs := logfile.Drain(*h.Handle, context.Background())
 					id := s.ID()
 
 					for msg := range msgs {
