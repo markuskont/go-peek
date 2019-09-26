@@ -5,8 +5,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/ccdcoe/go-peek/internal/ingest/logfile"
 	"github.com/ccdcoe/go-peek/pkg/ingest"
+	"github.com/ccdcoe/go-peek/pkg/ingest/logfile"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 	log "github.com/sirupsen/logrus"
@@ -251,7 +251,7 @@ func errLogger(err error, exit bool) {
 		log.WithField("type", "invalid interval").Error(v)
 	case *logfile.ErrEmptyCollect, logfile.ErrEmptyCollect:
 		log.WithField("type", "empty collect").Error(v)
-	case *logfile.ErrFuncMissing, logfile.ErrFuncMissing:
+	case *utils.ErrFuncMissing, utils.ErrFuncMissing:
 		log.WithField("type", "missing func").Error(v)
 	case *logfile.ErrUnknownGeneratorType, logfile.ErrUnknownGeneratorType:
 		log.WithField("type", "unk generator type").Error(v)

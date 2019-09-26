@@ -1,28 +1,17 @@
 package logfile
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/ccdcoe/go-peek/pkg/utils"
 )
-
-var lineSep = []byte{'\n'}
-
-type ErrMissingParam struct {
-	Param, Func string
-}
-
-func (e ErrMissingParam) Error() string {
-	return fmt.Sprintf("Missing param %s for function %s", e.Param, e.Func)
-}
 
 func AsyncStatAll(
 	root string,
 	fn utils.StatFileIntervalFunc,
 	workers int,
 ) ([]*Handle, error) {
-	files, err := genFileList(root, false)
+	files, err := GenFileList(root, false)
 	if err != nil {
 		return nil, err
 	}

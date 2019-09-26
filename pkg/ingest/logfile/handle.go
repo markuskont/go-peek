@@ -27,7 +27,7 @@ type Handle struct {
 
 func newHandle(path Path, fn utils.StatFileIntervalFunc) (*Handle, error) {
 	if fn == nil {
-		return nil, &ErrFuncMissing{
+		return nil, &utils.ErrFuncMissing{
 			Caller: fmt.Sprintf("Handle %s", path.String()),
 			Func:   "File interval parse",
 		}
@@ -53,7 +53,7 @@ func newHandle(path Path, fn utils.StatFileIntervalFunc) (*Handle, error) {
 	}
 	defer h.Close()
 
-	first, last, lines, err := statLogFileSinglePass(h)
+	first, last, lines, err := StatLogFileSinglePass(h)
 
 	s.Lines = lines
 	if err != nil {
