@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func play(collection []*Sequence, interval utils.Interval) <-chan *consumer.Message {
+func play(collection []*directory.Sequence, interval utils.Interval) <-chan *consumer.Message {
 	log.Trace("starting the replay")
 	tx := make(chan *consumer.Message, 100)
 
@@ -22,7 +22,7 @@ func play(collection []*Sequence, interval utils.Interval) <-chan *consumer.Mess
 
 		for _, seq := range collection {
 			wg.Add(1)
-			go func(s Sequence) {
+			go func(s directory.Sequence) {
 				defer wg.Done()
 				var fle *directory.Handle
 

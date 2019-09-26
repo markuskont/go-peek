@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/ccdcoe/go-peek/internal/engines/directory"
-	"github.com/ccdcoe/go-peek/internal/entrypoints/replay"
 	"github.com/ccdcoe/go-peek/pkg/ingest/logfile"
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	events "github.com/ccdcoe/go-peek/pkg/models/events"
@@ -46,7 +45,7 @@ func doSplit(cmd *cobra.Command, args []string) {
 		pth           string
 		err           error
 		cPattern      *regexp.Regexp
-		discoverFiles = make([]*replay.Sequence, 0)
+		discoverFiles = make([]*directory.Sequence, 0)
 	)
 	if cPattern, err = regexp.Compile(pattern); err != nil {
 		log.Fatal(err)
@@ -76,7 +75,7 @@ func doSplit(cmd *cobra.Command, args []string) {
 			}).Fatal("invalid path")
 		}
 
-		s := &replay.Sequence{
+		s := &directory.Sequence{
 			Type:    event,
 			DataDir: pth,
 		}
@@ -109,7 +108,7 @@ func doSplit(cmd *cobra.Command, args []string) {
 
 		for _, seq := range discoverFiles {
 			wg.Add(1)
-			go func(s replay.Sequence, tx chan<- *consumer.Message, wg *sync.WaitGroup) {
+			go func(s directory.Sequence, tx chan<- *consumer.Message, wg *sync.WaitGroup) {
 				defer wg.Done()
 
 				for _, h := range s.Files {

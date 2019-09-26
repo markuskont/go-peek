@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -264,49 +263,4 @@ loop:
 	}
 
 	return nil
-}
-
-func NewHandleSlice(
-	dir string,
-	atomic events.Atomic,
-	workers int,
-	fn utils.StatFileIntervalFunc,
-) ([]*Handle, error) {
-	if workers < 1 {
-		workers = 1
-	}
-
-	log.WithFields(log.Fields{
-		"workers": workers,
-		"dir":     dir,
-		"action":  "invoking async stat",
-	}).Trace("replay sequence discovery")
-
-	files, err := logfile.AsyncStatAll(dir, fn, workers)
-	if err != nil {
-		return nil, err
-	}
-
-	log.WithFields(log.Fields{
-		"found":  len(files),
-		"dir":    dir,
-		"action": "sorting",
-	}).Trace("discovery done")
-
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].Interval.Beginning.Before(files[j].Interval.Beginning)
-	})
-
-	handles := make([]*Handle, len(files))
-	for i, h := range files {
-		if h == nil {
-			return handles, &utils.ErrNilPointer{
-				Caller:   "log file discovery",
-				Function: fmt.Sprintf("log file no %d while building Handle list", i),
-			}
-		}
-		h.Atomic = atomic
-		handles[i] = &Handle{Handle: h}
-	}
-	return handles, nil
 }

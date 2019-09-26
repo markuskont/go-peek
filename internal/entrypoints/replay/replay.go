@@ -33,6 +33,8 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 	)
 	Workers = viper.GetInt("work.threads")
 	directory.TimeStampFormat = TimeStampFormat
+	directory.Fn = getIntervalFromJSON
+	directory.Workers = Workers
 
 	replayInterval, err := utils.NewIntervalFromStrings(
 		viper.GetString("time.from"),
@@ -54,7 +56,7 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 
 	var (
 		paths         []string
-		discoverFiles = make([]*Sequence, 0)
+		discoverFiles = make([]*directory.Sequence, 0)
 	)
 
 	// try to see if supported event types are configured
@@ -88,7 +90,7 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 				}).Fatal("invalid path")
 			}
 
-			discoverFiles = append(discoverFiles, &Sequence{
+			discoverFiles = append(discoverFiles, &directory.Sequence{
 				Type:    event,
 				DataDir: pth,
 			})
@@ -129,22 +131,22 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 		seq.Files = files
 	}
 
-	if err := SequenceList(discoverFiles).asyncBuildOrLoadAll(
+	if err := directory.SequenceList(discoverFiles).AsyncBuildOrLoadAll(
 		spooldir,
 		enableCache,
 	); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := SequenceList(discoverFiles).seekAll(*replayInterval); err != nil {
+	if err := directory.SequenceList(discoverFiles).SeekAll(*replayInterval); err != nil {
 		log.Fatal(err)
 	}
 
-	SequenceList(discoverFiles).
-		calcDiffsBetweenFiles().
-		calcDiffBeginning(*replayInterval)
+	directory.SequenceList(discoverFiles).
+		CalcDiffsBetweenFiles().
+		CalcDiffBeginning(*replayInterval)
 
-	if err := dumpSequences(spooldir, discoverFiles); err != nil {
+	if err := directory.DumpSequences(spooldir, discoverFiles); err != nil {
 		log.Fatal(err)
 	}
 
