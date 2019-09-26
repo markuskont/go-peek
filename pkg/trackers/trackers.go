@@ -33,12 +33,11 @@ func NewSample(k int) *Sample {
 	}
 }
 
-func (s *Sample) Push(item interface{}) *Sample {
+func (s *Sample) Push(item interface{}) {
 	if s.Len() == s.K {
 		s.Remove(s.Back())
 	}
 	s.PushFront(item)
-	return s
 }
 
 type EventMeasurement struct {
@@ -79,7 +78,7 @@ func (e *EventMeasurement) Increment() *EventMeasurement {
 	if e.started.IsZero() {
 		e.started = time.Now()
 	}
-	e.Counter++
+	e.Counter += 1.0
 	return e
 }
 
@@ -87,8 +86,8 @@ func (e *EventMeasurement) Increment() *EventMeasurement {
 func (e *EventMeasurement) PeriodicUpdate(gauge bool) *EventMeasurement {
 	e.elapsed = time.Since(e.started)
 	e.Counters.Update(e.Counter)
-	e.Counters.CalculateRatePerSec(time.Since(e.started))
-	e.Rates.Update(e.Counters.Rate)
+	//e.Counters.CalculateRatePerSec(time.Since(e.started))
+	//e.Rates.Update(e.Counters.Rate)
 	e.Welford.Update(e.Counter)
 	if gauge {
 		e.Counter = 0.0
@@ -179,11 +178,11 @@ func NewDeadman(c *DeadmanConfig) (*Deadman, error) {
 				for k, obj := range d.data {
 					obj.PeriodicUpdate(true)
 					log.Tracef(
-						"zscore: %.4f, mean: %.4f, dev: %.4f, k: %.1f, %s",
+						"zscore: %.4f, val: %.f, mean: %.2f, dev: %.4f, %s",
 						obj.Zscore,
+						obj.Counters.Values.Current,
 						obj.Welford.Mean(),
 						obj.SdtDev(),
-						obj.K(),
 						k,
 					)
 				}

@@ -43,7 +43,7 @@ func spawnWorkers(
 		if viper.GetBool("processor.deadman") {
 			log.Debug("Deadman detector enabled for log sources, configuring")
 			d, err := trackers.NewDeadman(&trackers.DeadmanConfig{
-				CheckInterval: 5 * time.Second,
+				CheckInterval: 30 * time.Second,
 			})
 			if err != nil {
 				log.Fatal(err)
