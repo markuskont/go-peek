@@ -28,8 +28,6 @@ type Sequence struct {
 	DataDir string
 	Files   []*Handle
 	Type    events.Atomic
-
-	Workers int
 }
 
 func (s Sequence) ID() string {
