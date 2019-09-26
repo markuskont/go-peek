@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
 	"github.com/ccdcoe/go-peek/pkg/ingest/logfile"
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/utils"
@@ -23,7 +24,7 @@ func play(collection []*Sequence, interval utils.Interval) <-chan *consumer.Mess
 			wg.Add(1)
 			go func(s Sequence) {
 				defer wg.Done()
-				var fle *Handle
+				var fle *directory.Handle
 
 				for _, fle = range s.Files {
 

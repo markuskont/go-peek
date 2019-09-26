@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/ccdcoe/go-peek/internal/engines/shipper"
+	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 	"github.com/spf13/cobra"
@@ -31,6 +32,7 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 		spooldir    = viper.GetString("work.dir")
 	)
 	Workers = viper.GetInt("work.threads")
+	directory.TimeStampFormat = TimeStampFormat
 
 	replayInterval, err := utils.NewIntervalFromStrings(
 		viper.GetString("time.from"),
@@ -108,13 +110,13 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 		}).Debug("file discovery")
 
 		// TODO: filter out files in each sequence that do not belong to specified range here
-		files := make([]*Handle, 0)
+		files := make([]*directory.Handle, 0)
 		for _, f := range seq.Files {
 			if !utils.IntervalInRange(*f.Interval, *replayInterval) {
 				continue
 			}
 
-			files = append(files, f.checkPartial(*replayInterval).enable())
+			files = append(files, f.CheckPartial(*replayInterval).Enable())
 			log.WithFields(log.Fields{
 				"type":  seq.Type.String(),
 				"file":  f.Base(),

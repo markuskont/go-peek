@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
 	"github.com/ccdcoe/go-peek/pkg/ingest/logfile"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
@@ -19,7 +20,7 @@ func (s SequenceList) asyncBuildOrLoadAll(
 
 	var (
 		errs     = make(chan error, s.handleCount())
-		handleCh = make(chan *Handle, 0)
+		handleCh = make(chan *directory.Handle, 0)
 		wg       sync.WaitGroup
 	)
 
@@ -31,7 +32,7 @@ func (s SequenceList) asyncBuildOrLoadAll(
 		for i := 0; i < Workers; i++ {
 			wg.Add(1)
 
-			go func(i int, rx <-chan *Handle) {
+			go func(i int, rx <-chan *directory.Handle) {
 				log.Tracef("Spawning worker %d", i)
 
 				defer wg.Done()
@@ -48,7 +49,7 @@ func (s SequenceList) asyncBuildOrLoadAll(
 
 					} else {
 
-						if err := h.build(); err != nil {
+						if err := h.Build(); err != nil {
 							errs <- err
 						}
 					}
@@ -95,10 +96,10 @@ outer:
 		}
 	inner:
 		for _, h := range seq.Files {
-			if h.Partial == CompletelyInRange {
+			if h.Partial == directory.CompletelyInRange {
 				continue inner
 			}
-			if err := h.seek(interval); err != nil {
+			if err := h.Seek(interval); err != nil {
 				return err
 			}
 		}

@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 	log "github.com/sirupsen/logrus"
@@ -21,20 +22,20 @@ func dumpSequences(spooldir string, s []*Sequence) error {
 		if item == nil {
 			continue
 		}
-		cacheFile, err := checkCache(item.ID(), spooldir, "sequences", JSON)
+		cacheFile, err := checkCache(item.ID(), spooldir, "sequences", directory.JSON)
 		if err != nil {
 			return err
 		}
-		if err := dumpSequence(cacheFile, *item, JSON); err != nil {
+		if err := dumpSequence(cacheFile, *item, directory.JSON); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func dumpSequence(path string, s Sequence, f Format) error {
+func dumpSequence(path string, s Sequence, f directory.Format) error {
 	switch f {
-	case JSON:
+	case directory.JSON:
 		data, err := json.Marshal(s)
 		if err != nil {
 			return err
@@ -42,7 +43,7 @@ func dumpSequence(path string, s Sequence, f Format) error {
 		if err := ioutil.WriteFile(path, data, 0640); err != nil {
 			return err
 		}
-	case Gob:
+	case directory.Gob:
 		if err := utils.GobSaveFile(path, s); err != nil {
 			return err
 		}
@@ -50,7 +51,7 @@ func dumpSequence(path string, s Sequence, f Format) error {
 	return nil
 }
 
-func checkCache(id, spooldir, subdir string, f Format) (string, error) {
+func checkCache(id, spooldir, subdir string, f directory.Format) (string, error) {
 	cacheFile, err := cacheFile(id, spooldir, subdir, f)
 	if err != nil {
 		return cacheFile, err
@@ -62,13 +63,13 @@ func checkCache(id, spooldir, subdir string, f Format) (string, error) {
 	return cacheFile, err
 }
 
-func cacheFile(id, dir, sub string, f Format) (string, error) {
+func cacheFile(id, dir, sub string, f directory.Format) (string, error) {
 	var err error
 	if dir, err = utils.ExpandHome(dir); err != nil {
 		return dir, err
 	}
 	dir = path.Join(dir, sub)
-	return path.Join(dir, fmt.Sprintf("%s%s", id, f.ext())), nil
+	return path.Join(dir, fmt.Sprintf("%s%s", id, f.Ext())), nil
 }
 
 // ParseJSONTime implements utils.StatFileIntervalFunc
@@ -90,15 +91,15 @@ func getIntervalFromJSON(first, last []byte) (utils.Interval, error) {
 	return *i, nil
 }
 
-func storeOrLoadCache(h *Handle, spooldir string) error {
-	cacheFile, err := checkCache(h.ID(), spooldir, "cache", Gob)
+func storeOrLoadCache(h *directory.Handle, spooldir string) error {
+	cacheFile, err := checkCache(h.ID(), spooldir, "cache", directory.Gob)
 	if err != nil {
 		return err
 	}
 
 	if utils.FileNotExists(cacheFile) {
 
-		if err := h.build(); err != nil {
+		if err := h.Build(); err != nil {
 			return err
 		}
 		if err := utils.GobSaveFile(cacheFile, *h); err != nil {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ccdcoe/go-peek/internal/entrypoints/replay"
+	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
 	"github.com/ccdcoe/go-peek/pkg/ingest/logfile"
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	events "github.com/ccdcoe/go-peek/pkg/models/events"
@@ -83,7 +84,7 @@ func doSplit(cmd *cobra.Command, args []string) {
 			log.Fatal(err)
 		}
 
-		handles := make([]*replay.Handle, 0)
+		handles := make([]*directory.Handle, 0)
 		for _, h := range s.Files {
 			if cPattern.MatchString(h.Base()) {
 				log.WithFields(log.Fields{

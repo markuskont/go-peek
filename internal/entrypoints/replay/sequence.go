@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
+	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 )
@@ -12,7 +13,7 @@ import (
 // Messages in a single set should all be in same format
 type Sequence struct {
 	DataDir string
-	Files   []*Handle
+	Files   []*directory.Handle
 	Type    events.Atomic
 }
 
@@ -24,7 +25,7 @@ func (s Sequence) ID() string {
 }
 
 func (s *Sequence) Discover() (err error) {
-	if s.Files, err = newHandleSlice(s.DataDir, s.Type); err != nil {
+	if s.Files, err = directory.NewHandleSlice(s.DataDir, s.Type, Workers, getIntervalFromJSON); err != nil {
 		switch v := err.(type) {
 		case *utils.ErrNilPointer:
 			v.Caller = v.Caller + " " + s.Type.String()
