@@ -5,8 +5,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/ccdcoe/go-peek/internal/engines/directory"
 	"github.com/ccdcoe/go-peek/internal/engines/shipper"
-	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 	"github.com/spf13/cobra"

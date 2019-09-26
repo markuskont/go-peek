@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
+	"github.com/ccdcoe/go-peek/internal/engines/directory"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 )

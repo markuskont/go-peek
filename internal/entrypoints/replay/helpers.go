@@ -8,7 +8,7 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/ccdcoe/go-peek/pkg/ingest/directory"
+	"github.com/ccdcoe/go-peek/internal/engines/directory"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 	log "github.com/sirupsen/logrus"
