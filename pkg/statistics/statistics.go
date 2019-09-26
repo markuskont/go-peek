@@ -44,13 +44,6 @@ func (v *Values) Update(value float64) *Values {
 	return v
 }
 
-func (v *Values) Increment() *Values {
-	v.Last = v.Current
-	v.Current++
-	v.K++
-	return v
-}
-
 func (v Values) Delta() float64 {
 	return v.Current - v.Last
 }
