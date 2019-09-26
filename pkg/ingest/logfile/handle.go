@@ -12,6 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type StatFileIntervalFunc func(first, last []byte) (utils.Interval, error)
+
 // Handle is a container for commonly needed information about log file
 // Path, number of lines, beginning and end times, etc
 // Keep it separate from logfile.Path, as parsing timestamps and counting lines can take significant amount of time
@@ -25,7 +27,7 @@ type Handle struct {
 	Atomic   events.Atomic
 }
 
-func NewHandle(path Path, fn utils.StatFileIntervalFunc) (*Handle, error) {
+func NewHandle(path Path, fn StatFileIntervalFunc) (*Handle, error) {
 	if fn == nil {
 		return nil, &utils.ErrFuncMissing{
 			Caller: fmt.Sprintf("Handle %s", path.String()),

@@ -25,6 +25,11 @@ const (
 	Logfile Source = iota
 )
 
+type Messager interface {
+	// Messages implements consumer.Messager
+	Messages() <-chan *Message
+}
+
 // Message is an atomic log entry that is closely modeled after kafka event
 type Message struct {
 	// Raw message in byte array format

@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	Fn      utils.StatFileIntervalFunc
+	Fn      logfile.StatFileIntervalFunc
 	Workers int
 )
 

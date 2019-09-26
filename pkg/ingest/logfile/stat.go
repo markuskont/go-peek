@@ -8,7 +8,7 @@ import (
 
 func AsyncStatAll(
 	root string,
-	fn utils.StatFileIntervalFunc,
+	fn StatFileIntervalFunc,
 	workers int,
 ) ([]*Handle, error) {
 	files, err := GenFileList(root, false)
