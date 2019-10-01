@@ -1,7 +1,6 @@
 package logfile
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
@@ -20,10 +19,9 @@ func (c *Config) Validate() error {
 }
 
 type Consumer struct {
-	h      []*Handle
-	tx     chan *consumer.Message
-	ctx    context.Context
-	cancel context.CancelFunc
+	h    []*Handle
+	tx   chan *consumer.Message
+	Stat StatFileIntervalFunc
 }
 
 func NewConsumer(c *Config) (*Consumer, error) {
@@ -31,7 +29,7 @@ func NewConsumer(c *Config) (*Consumer, error) {
 		return nil, fmt.Errorf("logfile consumer is missing config")
 	}
 	l := &Consumer{
-		tx: make(chan *consumer.Message),
+		tx: make(chan *consumer.Message, 0),
 	}
 	return l, nil
 }

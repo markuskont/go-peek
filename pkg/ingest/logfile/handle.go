@@ -14,6 +14,27 @@ import (
 
 type StatFileIntervalFunc func(first, last []byte) (utils.Interval, error)
 
+type Content int
+
+const (
+	Octet Content = iota
+	Plaintext
+	Gzip
+	Xz
+	Bzip
+	Utf8
+	Utf16
+)
+
+func (c Content) String() string {
+	switch c {
+	case Gzip:
+		return "application/gzip"
+	default:
+		return "application/octet-stream"
+	}
+}
+
 // Handle is a container for commonly needed information about log file
 // Path, number of lines, beginning and end times, etc
 // Keep it separate from logfile.Path, as parsing timestamps and counting lines can take significant amount of time
@@ -76,6 +97,8 @@ func NewHandle(path Path, fn StatFileIntervalFunc) (*Handle, error) {
 	if err := s.Interval.Validate(); err != nil {
 		switch e := err.(type) {
 		case *utils.ErrInvalidInterval:
+			return s, e.SetSrc(path.String())
+		case utils.ErrInvalidInterval:
 			return s, e.SetSrc(path.String())
 		}
 		return s, err
