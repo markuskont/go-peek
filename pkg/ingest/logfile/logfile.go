@@ -11,9 +11,20 @@ import (
 )
 
 type Config struct {
-	Paths       []string
-	StatFunc    StatFileIntervalFunc
-	StatWorkers int
+	Paths []string
+
+	Stat struct {
+		Enabled bool
+		Func    StatFileIntervalFunc
+		// Workers for statting timestamps if AsyncConsume is true
+		// Optimal for throughput is number of CPU threads - 2/3
+		Workers int
+	}
+
+	Consume struct {
+		Async   bool
+		Workers int
+	}
 
 	//TODO
 	files   []string
@@ -29,20 +40,23 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("%s is not a valid directory", pth)
 		}
 	}
-	if c.StatFunc == nil {
+	if c.Stat.Enabled && c.Stat.Func == nil {
 		log.Tracef(
 			"File interval stat function missing for %+v, initializing empty interval",
 			c.Paths,
 		)
-		c.StatFunc = func(first, last []byte) (utils.Interval, error) {
+		c.Stat.Func = func(first, last []byte) (utils.Interval, error) {
 			return utils.Interval{
 				Beginning: time.Time{},
 				End:       time.Time{},
 			}, nil
 		}
 	}
-	if c.StatWorkers < 1 {
-		c.StatWorkers = 1
+	if c.Stat.Workers < 1 {
+		c.Stat.Workers = 1
+	}
+	if c.Consume.Workers < 1 {
+		c.Consume.Workers = 1
 	}
 	return nil
 }
@@ -50,7 +64,7 @@ func (c *Config) Validate() error {
 type Consumer struct {
 	h    []*Handle
 	tx   chan *consumer.Message
-	stat StatFileIntervalFunc
+	conf Config
 }
 
 func NewConsumer(c *Config) (*Consumer, error) {
@@ -58,7 +72,20 @@ func NewConsumer(c *Config) (*Consumer, error) {
 		return nil, fmt.Errorf("logfile consumer is missing config")
 	}
 	l := &Consumer{
-		tx: make(chan *consumer.Message, 0),
+		h:    make([]*Handle, 0),
+		tx:   make(chan *consumer.Message, 0),
+		conf: *c,
+	}
+	for i, dir := range c.Paths {
+		log.WithFields(log.Fields{
+			"workers": l.conf.Stat.Workers,
+			"dir":     dir,
+		}).Tracef("%d - invoking async stat", i)
+		files, err := AsyncStatAll(dir, l.conf.Stat.Func, l.conf.Stat.Workers)
+		if err != nil {
+			return nil, err
+		}
+		l.h = append(l.h, files...)
 	}
 	return l, nil
 }
