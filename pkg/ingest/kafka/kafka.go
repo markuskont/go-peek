@@ -120,6 +120,7 @@ func NewConsumer(c *Config) (*Consumer, error) {
 					Source:    msg.Topic,
 					Time:      msg.Timestamp,
 					Key:       string(msg.Key),
+					Type:      consumer.Kafka,
 				}
 			case <-ctx.Done():
 				obj.handle.Close()

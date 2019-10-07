@@ -1,10 +1,13 @@
 package logfile
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
+	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 
 	log "github.com/sirupsen/logrus"
@@ -13,22 +16,12 @@ import (
 type Config struct {
 	Paths []string
 
-	Stat struct {
-		Enabled bool
-		Func    StatFileIntervalFunc
-		// Workers for statting timestamps if AsyncConsume is true
-		// Optimal for throughput is number of CPU threads - 2/3
-		Workers int
-	}
+	StatFunc    StatFileIntervalFunc
+	StatWorkers int
 
-	Consume struct {
-		Async   bool
-		Workers int
-	}
+	MapFunc func(string) events.Atomic
 
-	//TODO
-	files   []string
-	pattern string
+	ConsumeWorkers int
 }
 
 func (c *Config) Validate() error {
@@ -40,55 +33,119 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("%s is not a valid directory", pth)
 		}
 	}
-	if c.Stat.Enabled && c.Stat.Func == nil {
+	if c.StatFunc == nil {
 		log.Tracef(
 			"File interval stat function missing for %+v, initializing empty interval",
 			c.Paths,
 		)
-		c.Stat.Func = func(first, last []byte) (utils.Interval, error) {
+		c.StatFunc = func(first, last []byte) (utils.Interval, error) {
 			return utils.Interval{
 				Beginning: time.Time{},
 				End:       time.Time{},
 			}, nil
 		}
 	}
-	if c.Stat.Workers < 1 {
-		c.Stat.Workers = 1
+	if c.StatWorkers < 1 {
+		c.StatWorkers = 1
 	}
-	if c.Consume.Workers < 1 {
-		c.Consume.Workers = 1
+	if c.ConsumeWorkers < 1 {
+		c.ConsumeWorkers = 1
 	}
 	return nil
 }
 
 type Consumer struct {
-	h    []*Handle
-	tx   chan *consumer.Message
-	conf Config
+	h      []*Handle
+	tx     chan *consumer.Message
+	conf   Config
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func NewConsumer(c *Config) (*Consumer, error) {
 	if c == nil {
 		return nil, fmt.Errorf("logfile consumer is missing config")
 	}
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
 	l := &Consumer{
-		h:    make([]*Handle, 0),
-		tx:   make(chan *consumer.Message, 0),
-		conf: *c,
+		h:      make([]*Handle, 0),
+		tx:     make(chan *consumer.Message, 0),
+		conf:   *c,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 	for i, dir := range c.Paths {
 		log.WithFields(log.Fields{
-			"workers": l.conf.Stat.Workers,
+			"workers": l.conf.StatWorkers,
 			"dir":     dir,
 		}).Tracef("%d - invoking async stat", i)
-		files, err := AsyncStatAll(dir, l.conf.Stat.Func, l.conf.Stat.Workers)
+		files, err := AsyncStatAll(dir, l.conf.StatFunc, l.conf.StatWorkers, false)
 		if err != nil {
 			return nil, err
 		}
 		l.h = append(l.h, files...)
 	}
+	if c.MapFunc != nil {
+		for _, h := range l.h {
+			h.Atomic = c.MapFunc(h.Clean())
+		}
+	}
+
+	files := make(chan *Handle, 0)
+	go func(ctx context.Context) {
+		for _, h := range l.h {
+			fmt.Println(h.Path.String())
+			files <- h
+		}
+	}(l.ctx)
+
+	var wg sync.WaitGroup
+	go func() {
+		defer close(l.tx)
+		defer func() {
+			log.Tracef("logfile consume workers done")
+		}()
+		for i := 0; i < c.ConsumeWorkers; i++ {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				defer func() {
+					log.WithFields(log.Fields{
+						"type": "file", "fn": "reader done", "worker": id,
+					}).Trace()
+				}()
+				log.WithFields(log.Fields{
+					"type": "file", "fn": "reader spawn", "worker": id,
+				}).Trace()
+			loop:
+				for h := range files {
+					select {
+					case <-ctx.Done():
+						break loop
+					default:
+						log.WithFields(log.Fields{
+							"type": "file", "fn": "file read", "worker": id,
+						}).Trace()
+						log.Tracef("%s", h.Path.String())
+						DrainTo(*h, context.Background(), l.tx)
+					}
+				}
+			}(i)
+		}
+		wg.Wait()
+	}()
 	return l, nil
 }
 
 // Messages implements consumer.Messager
 func (c Consumer) Messages() <-chan *consumer.Message { return c.tx }
+func (c Consumer) Files() []string {
+	f := make([]string, 0)
+	for _, h := range c.h {
+		f = append(f, h.Path.String())
+	}
+	return f
+}

@@ -89,25 +89,6 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 		kafkaConsumer.Messages(),
 		Workers,
 		spooldir,
-		func(topic string) events.Atomic {
-			mapping := func() map[string]events.Atomic {
-				out := make(map[string]events.Atomic)
-				for _, event := range events.Atomics {
-					if src := viper.GetStringSlice(
-						fmt.Sprintf("stream.%s.kafka.topic", event.String()),
-					); len(src) > 0 {
-						for _, item := range src {
-							out[item] = event
-						}
-					}
-				}
-				return out
-			}()
-			if val, ok := mapping[topic]; ok {
-				return val
-			}
-			return events.SimpleE
-		},
 	)
 
 	go func() {

@@ -78,6 +78,7 @@ func (h Path) Dir() string          { return filepath.Dir(h.String()) }
 func (h Path) Ext() string          { return filepath.Ext(h.String()) }
 func (h Path) Base() string         { return filepath.Base(h.String()) }
 func (h Path) Abs() (string, error) { return filepath.Abs(h.String()) }
+func (h Path) Clean() string        { return filepath.Clean(h.String()) }
 
 func (h Path) Stat() (os.FileInfo, error) {
 	handle, err := os.Open(h.String())

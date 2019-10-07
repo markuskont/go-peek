@@ -14,15 +14,31 @@ import (
 	"github.com/spf13/viper"
 )
 
-type eventMapFn func(string) events.Atomic
-
 func spawnWorkers(
 	rx <-chan *consumer.Message,
 	workers int,
 	spooldir string,
-	fn eventMapFn,
 ) (<-chan *consumer.Message, *utils.ErrChan) {
 	tx := make(chan *consumer.Message, 0)
+	kafkaTopicToEvent := func(topic string) events.Atomic {
+		mapping := func() map[string]events.Atomic {
+			out := make(map[string]events.Atomic)
+			for _, event := range events.Atomics {
+				if src := viper.GetStringSlice(
+					fmt.Sprintf("stream.%s.kafka.topic", event.String()),
+				); len(src) > 0 {
+					for _, item := range src {
+						out[item] = event
+					}
+				}
+			}
+			return out
+		}()
+		if val, ok := mapping[topic]; ok {
+			return val
+		}
+		return events.SimpleE
+	}
 	errs := &utils.ErrChan{
 		Desc:  "Event parse worker runtime errors",
 		Items: make(chan error, 100),
@@ -89,7 +105,13 @@ func spawnWorkers(
 
 			loop:
 				for msg := range rx {
-					e, err := events.NewGameEvent(msg.Data, fn(msg.Source))
+					var evType events.Atomic
+					switch msg.Type {
+					case consumer.Kafka:
+						evType = kafkaTopicToEvent(msg.Source)
+					}
+
+					e, err := events.NewGameEvent(msg.Data, evType)
 					if err != nil {
 						errs.Send(err)
 						continue loop

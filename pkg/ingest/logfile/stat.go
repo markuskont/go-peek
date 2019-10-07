@@ -10,6 +10,7 @@ func AsyncStatAll(
 	root string,
 	fn StatFileIntervalFunc,
 	workers int,
+	stat bool,
 ) ([]*Handle, error) {
 	files, err := GenFileList(root, false)
 	if err != nil {
@@ -33,7 +34,7 @@ func AsyncStatAll(
 			go func() {
 				defer wg.Done()
 				for f := range rx {
-					s, err := NewHandle(f, fn)
+					s, err := NewHandle(f, stat, fn)
 					if err != nil {
 						errs <- err
 					}

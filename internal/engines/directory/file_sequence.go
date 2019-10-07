@@ -82,7 +82,7 @@ func newHandleSlice(
 		"action":  "invoking async stat",
 	}).Trace("replay sequence discovery")
 
-	files, err := logfile.AsyncStatAll(dir, Fn, Workers)
+	files, err := logfile.AsyncStatAll(dir, Fn, Workers, true)
 	if err != nil {
 		return nil, err
 	}

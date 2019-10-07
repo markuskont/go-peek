@@ -22,7 +22,11 @@ func (s Source) String() string {
 }
 
 const (
-	Logfile Source = iota
+	Unknown Source = iota
+	Logfile
+	Kafka
+	UxSock
+	Redis
 )
 
 type Messager interface {
