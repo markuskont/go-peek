@@ -41,7 +41,7 @@ var readfilesCmd = &cobra.Command{
 			errLogger(err, true)
 		}
 		for msg := range reader.Messages() {
-			fmt.Fprintf(os.Stdout, "%+v\n", msg)
+			fmt.Fprintf(os.Stdout, "%+v\n", msg.Event.String())
 		}
 	},
 }
