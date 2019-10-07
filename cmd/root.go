@@ -117,6 +117,10 @@ func initInputConfig() {
 		beginning - start from first available message in topic
 		latest - start from most recent message in topic`)
 	viper.BindPFlag("input.kafka.mode", rootCmd.PersistentFlags().Lookup("input-kafka-mode"))
+
+	rootCmd.PersistentFlags().Bool("input-dir-enabled", false,
+		`Enable reading compressed or plaintext log files from directory. For post-mortem processing`)
+	viper.BindPFlag("input.dir.enabled", rootCmd.PersistentFlags().Lookup("input-dir-enabled"))
 }
 
 func initProcessorConfig() {

@@ -39,10 +39,7 @@ func spawnWorkers(
 		}
 		return events.SimpleE
 	}
-	errs := &utils.ErrChan{
-		Desc:  "Event parse worker runtime errors",
-		Items: make(chan error, 100),
-	}
+	errs := utils.NewErrChan(100, "Event parse worker runtime errors")
 	var wg sync.WaitGroup
 	anon := viper.GetBool("processor.anonymize")
 	noparse := func() bool {
