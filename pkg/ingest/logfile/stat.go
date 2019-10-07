@@ -3,6 +3,7 @@ package logfile
 import (
 	"sync"
 
+	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 )
 
@@ -11,6 +12,7 @@ func AsyncStatAll(
 	fn StatFileIntervalFunc,
 	workers int,
 	stat bool,
+	atomic events.Atomic,
 ) ([]*Handle, error) {
 	files, err := GenFileList(root, false)
 	if err != nil {
@@ -34,7 +36,7 @@ func AsyncStatAll(
 			go func() {
 				defer wg.Done()
 				for f := range rx {
-					s, err := NewHandle(f, stat, fn)
+					s, err := NewHandle(f, stat, fn, atomic)
 					if err != nil {
 						errs <- err
 					}

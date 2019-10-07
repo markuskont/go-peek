@@ -17,6 +17,18 @@ type DirSource struct {
 
 type DirSources []DirSource
 
+func (d DirSources) MapFunc() func(string) events.Atomic {
+	m := make(map[string]events.Atomic)
+	for _, s := range d {
+		for _, p := range s.Paths {
+			m[p] = s.Type
+		}
+	}
+	return func(pth string) events.Atomic {
+		return m[filepath.Clean(pth)]
+	}
+}
+
 func (d DirSources) Files() []string {
 	f := make([]string, 0)
 	for _, file := range d {

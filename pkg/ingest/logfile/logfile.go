@@ -82,23 +82,34 @@ func NewConsumer(c *Config) (*Consumer, error) {
 			"workers": l.conf.StatWorkers,
 			"dir":     dir,
 		}).Tracef("%d - invoking async stat", i)
-		files, err := AsyncStatAll(dir, l.conf.StatFunc, l.conf.StatWorkers, false)
+		files, err := AsyncStatAll(
+			dir,
+			l.conf.StatFunc,
+			l.conf.StatWorkers,
+			false,
+			func() events.Atomic {
+				if c.MapFunc == nil {
+					return events.SimpleE
+				}
+				return c.MapFunc(dir)
+			}(),
+		)
 		if err != nil {
 			return nil, err
 		}
 		l.h = append(l.h, files...)
 	}
-	if c.MapFunc != nil {
-		for _, h := range l.h {
-			h.Atomic = c.MapFunc(h.Clean())
-		}
-	}
 
 	files := make(chan *Handle, 0)
 	go func(ctx context.Context) {
+	loop:
 		for _, h := range l.h {
-			fmt.Println(h.Path.String())
-			files <- h
+			select {
+			case <-ctx.Done():
+				break loop
+			default:
+				files <- h
+			}
 		}
 	}(l.ctx)
 
@@ -110,7 +121,7 @@ func NewConsumer(c *Config) (*Consumer, error) {
 		}()
 		for i := 0; i < c.ConsumeWorkers; i++ {
 			wg.Add(1)
-			go func(id int) {
+			go func(id int, ctx context.Context) {
 				defer wg.Done()
 				defer func() {
 					log.WithFields(log.Fields{
@@ -120,20 +131,13 @@ func NewConsumer(c *Config) (*Consumer, error) {
 				log.WithFields(log.Fields{
 					"type": "file", "fn": "reader spawn", "worker": id,
 				}).Trace()
-			loop:
 				for h := range files {
-					select {
-					case <-ctx.Done():
-						break loop
-					default:
-						log.WithFields(log.Fields{
-							"type": "file", "fn": "file read", "worker": id,
-						}).Trace()
-						log.Tracef("%s", h.Path.String())
-						DrainTo(*h, context.Background(), l.tx)
-					}
+					log.WithFields(log.Fields{
+						"type": "file", "fn": "file read", "worker": id,
+					}).Trace()
+					DrainTo(*h, context.Background(), l.tx)
 				}
-			}(i)
+			}(i, context.TODO())
 		}
 		wg.Wait()
 	}()

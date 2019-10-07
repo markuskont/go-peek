@@ -82,7 +82,7 @@ func newHandleSlice(
 		"action":  "invoking async stat",
 	}).Trace("replay sequence discovery")
 
-	files, err := logfile.AsyncStatAll(dir, Fn, Workers, true)
+	files, err := logfile.AsyncStatAll(dir, Fn, Workers, true, atomic)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,6 @@ func newHandleSlice(
 				Function: fmt.Sprintf("log file no %d while building Handle list", i),
 			}
 		}
-		h.Atomic = atomic
 		handles[i] = &Handle{Handle: h}
 	}
 	return handles, nil

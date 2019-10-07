@@ -36,6 +36,7 @@ var readfilesCmd = &cobra.Command{
 			Paths:          files.Files(),
 			StatWorkers:    viper.GetInt("work.threads"),
 			ConsumeWorkers: viper.GetInt("work.threads"),
+			MapFunc:        files.MapFunc(),
 		})
 		if err != nil {
 			errLogger(err, true)

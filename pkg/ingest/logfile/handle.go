@@ -48,7 +48,7 @@ type Handle struct {
 	Atomic   events.Atomic
 }
 
-func NewHandle(path Path, stat bool, fn StatFileIntervalFunc) (*Handle, error) {
+func NewHandle(path Path, stat bool, fn StatFileIntervalFunc, atomic events.Atomic) (*Handle, error) {
 	if fn == nil {
 		return nil, &utils.ErrFuncMissing{
 			Caller: fmt.Sprintf("Handle %s", path.String()),
@@ -69,6 +69,7 @@ func NewHandle(path Path, stat bool, fn StatFileIntervalFunc) (*Handle, error) {
 		Path:     path,
 		Content:  mime,
 		Interval: &utils.Interval{},
+		Atomic:   atomic,
 	}
 
 	h, err := open(s.Path.String())
@@ -164,6 +165,7 @@ func DrainTo(h Handle, ctx context.Context, tx chan<- *consumer.Message) error {
 				Type:   consumer.Logfile,
 				Source: h.Path.String(),
 				Key:    h.Atomic.String(),
+				Event:  h.Atomic,
 			}
 
 			if to > 0 && count == to {
