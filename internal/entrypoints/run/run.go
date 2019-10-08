@@ -47,11 +47,17 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 		files := helpers.GetDirListingFromViper()
 		consumer, err := logfile.NewConsumer(&logfile.Config{
-			Paths:          files.Files(),
-			StatWorkers:    viper.GetInt("work.threads"),
-			ConsumeWorkers: viper.GetInt("work.threads"),
-			MapFunc:        files.MapFunc(),
-			Ctx:            ctx,
+			Paths:       files.Files(),
+			StatWorkers: viper.GetInt("work.threads"),
+			ConsumeWorkers: func() int {
+				// 2-3 IO readers can easily saturate most workers, unless no actual processing happens before shipping
+				if !viper.GetBool("processor.enabled") {
+					return viper.GetInt("work.threads")
+				}
+				return 3
+			}(),
+			MapFunc: files.MapFunc(),
+			Ctx:     ctx,
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -114,7 +120,7 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 			stop()
 		}
 	}()
-	modified, _ := spawnWorkers(
+	modified, errs := spawnWorkers(
 		func() <-chan *consumer.Message {
 			if len(inputs) == 1 {
 				return inputs[0].Messages()
@@ -140,17 +146,11 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 		spooldir,
 	)
 
-	/*
-		go func() {
-			for err := range errs.Items {
-				log.Error(err)
-			}
-		}()
-	*/
-
-	for msg := range modified {
-		fmt.Fprintf(os.Stdout, "%+v\n", msg)
-	}
+	go func() {
+		for err := range errs.Items {
+			log.Error(err)
+		}
+	}()
 
 	if err := shipper.Send(modified); err != nil {
 		log.Fatal(err)

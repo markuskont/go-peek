@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/ccdcoe/go-peek/pkg/intel"
 	"github.com/ccdcoe/go-peek/pkg/intel/wise"
@@ -102,10 +103,15 @@ func spawnWorkers(
 
 			loop:
 				for msg := range rx {
-					var evType events.Atomic
+					evType := msg.Event
 					switch msg.Type {
 					case consumer.Kafka:
 						evType = kafkaTopicToEvent(msg.Source)
+					}
+					if noparse {
+						msg.Time = time.Now()
+						tx <- msg
+						continue loop
 					}
 
 					e, err := events.NewGameEvent(msg.Data, evType)
@@ -114,10 +120,6 @@ func spawnWorkers(
 						continue loop
 					}
 					msg.Time = e.Time()
-					if noparse {
-						tx <- msg
-						continue loop
-					}
 
 					meta := e.GetAsset()
 					if meta == nil {
