@@ -44,26 +44,29 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 	stoppers := make([]context.CancelFunc, 0)
 
 	if viper.GetBool("input.dir.enabled") {
+		ctx, cancel := context.WithCancel(context.Background())
 		files := helpers.GetDirListingFromViper()
-		dirConsumer, err := logfile.NewConsumer(&logfile.Config{
+		consumer, err := logfile.NewConsumer(&logfile.Config{
 			Paths:          files.Files(),
 			StatWorkers:    viper.GetInt("work.threads"),
 			ConsumeWorkers: viper.GetInt("work.threads"),
 			MapFunc:        files.MapFunc(),
+			Ctx:            ctx,
 		})
 		if err != nil {
 			log.Fatal(err)
 		}
-		inputs = append(inputs, dirConsumer)
+		inputs = append(inputs, consumer)
+		stoppers = append(stoppers, cancel)
 	}
 
 	// Kafka start
 	if viper.GetBool("input.kafka.enabled") {
-		kafkaCtx, kafkaCancel := context.WithCancel(context.Background())
-		kafkaConsumer, err := inKafka.NewConsumer(&inKafka.Config{
+		ctx, cancel := context.WithCancel(context.Background())
+		consumer, err := inKafka.NewConsumer(&inKafka.Config{
 			Brokers:       viper.GetStringSlice("input.kafka.host"),
 			ConsumerGroup: viper.GetString("input.kafka.group"),
-			Ctx:           kafkaCtx,
+			Ctx:           ctx,
 			Topics: func() []string {
 				topics := []string{}
 				for _, event := range events.Atomics {
@@ -99,8 +102,8 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 				"hosts":  viper.GetStringSlice("input.kafka.host"),
 			}).Fatal(err)
 		}
-		inputs = append(inputs, kafkaConsumer)
-		stoppers = append(stoppers, kafkaCancel)
+		inputs = append(inputs, consumer)
+		stoppers = append(stoppers, cancel)
 	}
 	// handle ctrl-c exit
 	c := make(chan os.Signal, 1)
@@ -111,38 +114,43 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 			stop()
 		}
 	}()
-	merged := func() <-chan *consumer.Message {
-		if len(inputs) == 1 {
-			return inputs[0].Messages()
-		}
-		tx := make(chan *consumer.Message, 0)
-		var wg sync.WaitGroup
-		go func() {
-			defer close(tx)
-			for _, iface := range inputs {
-				wg.Add(1)
-				go func(rx <-chan *consumer.Message, tx chan<- *consumer.Message) {
-					defer wg.Done()
-					for msg := range rx {
-						tx <- msg
-					}
-				}(iface.Messages(), tx)
+	modified, _ := spawnWorkers(
+		func() <-chan *consumer.Message {
+			if len(inputs) == 1 {
+				return inputs[0].Messages()
 			}
-			wg.Wait()
-		}()
-		return tx
-	}()
-	modified, modWorkerErrors := spawnWorkers(
-		merged,
+			tx := make(chan *consumer.Message, 0)
+			var wg sync.WaitGroup
+			go func() {
+				defer close(tx)
+				for _, iface := range inputs {
+					wg.Add(1)
+					go func(rx <-chan *consumer.Message, tx chan<- *consumer.Message) {
+						defer wg.Done()
+						for msg := range rx {
+							tx <- msg
+						}
+					}(iface.Messages(), tx)
+				}
+				wg.Wait()
+			}()
+			return tx
+		}(),
 		Workers,
 		spooldir,
 	)
 
-	go func() {
-		for err := range modWorkerErrors.Items {
-			log.Error(err)
-		}
-	}()
+	/*
+		go func() {
+			for err := range errs.Items {
+				log.Error(err)
+			}
+		}()
+	*/
+
+	for msg := range modified {
+		fmt.Fprintf(os.Stdout, "%+v\n", msg)
+	}
 
 	if err := shipper.Send(modified); err != nil {
 		log.Fatal(err)

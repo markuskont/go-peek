@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
@@ -13,53 +12,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Config struct {
-	Paths []string
-
-	StatFunc    StatFileIntervalFunc
-	StatWorkers int
-
-	MapFunc func(string) events.Atomic
-
-	ConsumeWorkers int
-}
-
-func (c *Config) Validate() error {
-	if c.Paths == nil {
-		return fmt.Errorf("File input module is missing root paths")
-	}
-	for _, pth := range c.Paths {
-		if !utils.StringIsValidDir(pth) {
-			return fmt.Errorf("%s is not a valid directory", pth)
-		}
-	}
-	if c.StatFunc == nil {
-		log.Tracef(
-			"File interval stat function missing for %+v, initializing empty interval",
-			c.Paths,
-		)
-		c.StatFunc = func(first, last []byte) (utils.Interval, error) {
-			return utils.Interval{
-				Beginning: time.Time{},
-				End:       time.Time{},
-			}, nil
-		}
-	}
-	if c.StatWorkers < 1 {
-		c.StatWorkers = 1
-	}
-	if c.ConsumeWorkers < 1 {
-		c.ConsumeWorkers = 1
-	}
-	return nil
-}
-
 type Consumer struct {
-	h      []*Handle
-	tx     chan *consumer.Message
-	conf   Config
-	ctx    context.Context
-	cancel context.CancelFunc
+	h        []*Handle
+	tx       chan *consumer.Message
+	conf     Config
+	ctx      context.Context
+	stoppers utils.WorkerStoppers
+	workers  int
 }
 
 func NewConsumer(c *Config) (*Consumer, error) {
@@ -69,13 +28,13 @@ func NewConsumer(c *Config) (*Consumer, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
 	l := &Consumer{
-		h:      make([]*Handle, 0),
-		tx:     make(chan *consumer.Message, 0),
-		conf:   *c,
-		ctx:    ctx,
-		cancel: cancel,
+		h:        make([]*Handle, 0),
+		tx:       make(chan *consumer.Message, 0),
+		conf:     *c,
+		ctx:      c.Ctx,
+		stoppers: utils.NewWorkerStoppers(c.ConsumeWorkers),
+		workers:  c.ConsumeWorkers,
 	}
 	for i, dir := range c.Paths {
 		log.WithFields(log.Fields{
@@ -102,6 +61,8 @@ func NewConsumer(c *Config) (*Consumer, error) {
 
 	files := make(chan *Handle, 0)
 	go func(ctx context.Context) {
+		defer l.close()
+		defer close(files)
 	loop:
 		for _, h := range l.h {
 			select {
@@ -135,9 +96,9 @@ func NewConsumer(c *Config) (*Consumer, error) {
 					log.WithFields(log.Fields{
 						"type": "file", "fn": "file read", "worker": id,
 					}).Trace()
-					DrainTo(*h, context.Background(), l.tx)
+					DrainTo(*h, ctx, l.tx)
 				}
-			}(i, context.TODO())
+			}(i, l.stoppers[i].Ctx)
 		}
 		wg.Wait()
 	}()
@@ -152,4 +113,15 @@ func (c Consumer) Files() []string {
 		f = append(f, h.Path.String())
 	}
 	return f
+}
+func (c Consumer) close() error {
+	if c.stoppers == nil || len(c.stoppers) != c.workers {
+		return fmt.Errorf("Log file consumer not instanciated properly, cannot close")
+	}
+	log.Trace("Stopping all log readers")
+	for _, s := range c.stoppers {
+		s.Cancel()
+	}
+	log.Tracef("%d log readers stopped", len(c.stoppers))
+	return nil
 }
