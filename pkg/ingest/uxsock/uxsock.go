@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"sync"
@@ -109,12 +108,14 @@ func NewConsumer(c *Config) (*Consumer, error) {
 			}).Trace()
 			wg.Add(1)
 			go func(id int, ctx context.Context, h handle) {
+				defer h.listener.Close()
 				defer socketCleanUp(h.path)
 				defer wg.Done()
 			loop:
 				for {
 					select {
 					case <-ctx.Done():
+						log.Tracef("breaking uxsock worker %d, %s", id, h.path)
 						break loop
 					default:
 						h.listener.SetDeadline(time.Now().Add(1e9))
@@ -125,15 +126,28 @@ func NewConsumer(c *Config) (*Consumer, error) {
 							}
 							con.errs.Send(err)
 						}
-						go scanSocketToChan(consumer.Message{
-							Offset:    -1,
-							Partition: -1,
-							Type:      consumer.UxSock,
-							Event:     h.atomic,
-							Source:    h.path,
-							Key:       "",
-							Time:      time.Now(),
-						}, c, con.tx, context.TODO(), con.errs)
+
+						scanner := bufio.NewScanner(c)
+						buf := make([]byte, 0, bufsize)
+						scanner.Buffer(buf, bufsize)
+						for scanner.Scan() {
+							select {
+							case <-ctx.Done():
+								log.Tracef("breaking uxsock worker %d, %s", id, h.path)
+								break loop
+							default:
+								con.tx <- &consumer.Message{
+									Data:      utils.DeepCopyBytes(scanner.Bytes()),
+									Offset:    -1,
+									Partition: -1,
+									Type:      consumer.UxSock,
+									Event:     h.atomic,
+									Source:    h.path,
+									Key:       "",
+									Time:      time.Now(),
+								}
+							}
+						}
 					}
 				}
 			}(i, con.stoppers[i].Ctx, *h)
@@ -152,41 +166,6 @@ func (c Consumer) close() error {
 	}
 	c.stoppers.Close()
 	return nil
-}
-
-func scanSocketToChan(
-	tpl consumer.Message,
-	raw io.Reader,
-	tx chan<- *consumer.Message,
-	ctx context.Context,
-	errs *utils.ErrChan,
-) {
-	scanner := bufio.NewScanner(raw)
-	buf := make([]byte, 0, bufsize)
-	scanner.Buffer(buf, bufsize)
-loop:
-	for scanner.Scan() {
-		select {
-		case <-ctx.Done():
-			break loop
-		default:
-			tx <- &consumer.Message{
-				Data:      utils.DeepCopyBytes(scanner.Bytes()),
-				Offset:    tpl.Offset,
-				Partition: tpl.Partition,
-				Type:      tpl.Type,
-				Event:     tpl.Event,
-				Source:    tpl.Source,
-				Key:       tpl.Key,
-				Time:      tpl.Time,
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		errs.Send(err)
-	}
-	return
 }
 
 func socketCleanUp(p string) {
