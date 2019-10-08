@@ -93,16 +93,21 @@ func NewConsumer(c *Config) (*Consumer, error) {
 	con.stoppers = utils.NewWorkerStoppers(len(con.h))
 	con.wg = &wg
 	go func() {
+		<-con.ctx.Done()
+		con.close()
+	}()
+	go func() {
 		defer con.wg.Wait()
 		defer close(con.tx)
 		for i, h := range con.h {
 			con.wg.Add(1)
 			go func(id int, ctx context.Context, h handle) {
+				defer socketCleanUp(h.path)
 				defer con.wg.Done()
 			loop:
 				for {
 					select {
-					case <-con.ctx.Done():
+					case <-ctx.Done():
 						break loop
 					default:
 						h.listener.SetDeadline(time.Now().Add(1e9))
@@ -122,7 +127,7 @@ func NewConsumer(c *Config) (*Consumer, error) {
 							Source:    h.path,
 							Key:       "",
 							Time:      time.Now(),
-						}, c, con.tx, ctx, con.errs)
+						}, c, con.tx, context.TODO(), con.errs)
 					}
 				}
 			}(i, con.stoppers[i].Ctx, *h)
@@ -134,7 +139,7 @@ func NewConsumer(c *Config) (*Consumer, error) {
 func (c Consumer) Messages() <-chan *consumer.Message { return c.tx }
 func (c Consumer) Timeouts() int                      { return c.timeouts }
 
-func (c Consumer) Close() error {
+func (c Consumer) close() error {
 	if c.stoppers == nil || len(c.stoppers) == 0 || c.wg == nil {
 		return fmt.Errorf("Cannot close unix socket consumer, not properly instanciated")
 	}
