@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
@@ -60,7 +62,6 @@ type Consumer struct {
 	tx       chan *consumer.Message
 	ctx      context.Context
 	stoppers utils.WorkerStoppers
-	wg       *sync.WaitGroup
 	errs     *utils.ErrChan
 	timeouts int
 }
@@ -91,19 +92,25 @@ func NewConsumer(c *Config) (*Consumer, error) {
 	}
 	var wg sync.WaitGroup
 	con.stoppers = utils.NewWorkerStoppers(len(con.h))
-	con.wg = &wg
 	go func() {
 		<-con.ctx.Done()
+		log.Trace("unix socket consumer caught cancel signal")
 		con.close()
 	}()
 	go func() {
-		defer con.wg.Wait()
 		defer close(con.tx)
+		defer func() { log.Tracef("All %d unix socket consumers exited", len(con.h)) }()
 		for i, h := range con.h {
-			con.wg.Add(1)
+			log.WithFields(log.Fields{
+				"id":     i,
+				"action": "worker spawn",
+				"module": "uxsock",
+				"path":   h.path,
+			}).Trace()
+			wg.Add(1)
 			go func(id int, ctx context.Context, h handle) {
 				defer socketCleanUp(h.path)
-				defer con.wg.Done()
+				defer wg.Done()
 			loop:
 				for {
 					select {
@@ -114,7 +121,6 @@ func NewConsumer(c *Config) (*Consumer, error) {
 						c, err := h.listener.Accept()
 						if err != nil {
 							if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
-								con.timeouts++
 								continue loop
 							}
 							con.errs.Send(err)
@@ -132,6 +138,7 @@ func NewConsumer(c *Config) (*Consumer, error) {
 				}
 			}(i, con.stoppers[i].Ctx, *h)
 		}
+		wg.Wait()
 	}()
 	return con, nil
 }
@@ -140,11 +147,10 @@ func (c Consumer) Messages() <-chan *consumer.Message { return c.tx }
 func (c Consumer) Timeouts() int                      { return c.timeouts }
 
 func (c Consumer) close() error {
-	if c.stoppers == nil || len(c.stoppers) == 0 || c.wg == nil {
+	if c.stoppers == nil || len(c.stoppers) == 0 {
 		return fmt.Errorf("Cannot close unix socket consumer, not properly instanciated")
 	}
 	c.stoppers.Close()
-	c.wg.Wait()
 	return nil
 }
 
