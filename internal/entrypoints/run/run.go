@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	"github.com/ccdcoe/go-peek/internal/engines/shipper"
 	"github.com/ccdcoe/go-peek/internal/helpers"
@@ -164,8 +165,12 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 	)
 
 	go func() {
-		for err := range errs.Items {
-			log.Error(err)
+		every := time.NewTicker(3 * time.Second)
+		for {
+			select {
+			case <-every.C:
+				log.Error(errs)
+			}
 		}
 	}()
 
