@@ -99,20 +99,24 @@ func getCommonEventExpressionPayload(raw string) []byte {
 }
 
 type ErrParseSnoopy struct {
-	Msg string
+	Msg    string
+	Reason string
 }
 
 func (e ErrParseSnoopy) Error() string {
-	return fmt.Sprintf("Unable to parse snoopy msg [%s]", e.Msg)
+	return fmt.Sprintf("Unable to parse snoopy msg [%s] BECAUSE: %s", e.Msg, e.Reason)
 }
 
 func ParseSnoopy(m string) (*Snoopy, error) {
+	if strings.HasPrefix(m, " ") {
+		m = strings.TrimLeft(m, " ")
+	}
 	if !strings.HasPrefix(m, "[") {
-		return nil, ErrParseSnoopy{Msg: m}
+		return nil, ErrParseSnoopy{Msg: m, Reason: "Invalid header"}
 	}
 	c := strings.Index(m, "]")
 	if c == -1 {
-		return nil, ErrParseSnoopy{Msg: m}
+		return nil, ErrParseSnoopy{Msg: m, Reason: "No closing bracket"}
 	}
 	sub := false
 	f := func(c rune) bool {
