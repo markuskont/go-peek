@@ -46,11 +46,14 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 			go func(id int) {
 				defer wg.Done()
 				p := rfc5424.NewParser(rfc5424.WithBestEffort())
+			loop:
 				for raw := range msgs {
 					msg, err := p.Parse(raw.Data)
 					if err != nil {
 						log.Error(err)
+						continue loop
 					}
+
 					s := atomic.Syslog{
 						Timestamp: *msg.Timestamp(),
 						Host:      *msg.Hostname(),
@@ -59,11 +62,6 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 						Facility:  *msg.FacilityLevel(),
 						Message:   *msg.Message(),
 						IP:        &fields.StringIP{IP: raw.IP},
-					}
-					switch s.Program {
-					case "suricata":
-					case "snoopy":
-					default:
 					}
 					j, _ := json.Marshal(s)
 					fmt.Println(string(j))

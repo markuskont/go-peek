@@ -4,6 +4,11 @@
 
 $rsyslog = <<-SCRIPT
 cat >> /etc/rsyslog.d/000.conf <<EOF
+$MaxMessageSize 64k
+
+module(load="imudp") # needs to be done just once
+input(type="imudp" port="514")
+
 *.* @192.168.33.1:10001;RSYSLOG_SyslogProtocol23Format
 EOF
 systemctl restart rsyslog.service
