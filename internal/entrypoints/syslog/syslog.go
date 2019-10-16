@@ -75,7 +75,6 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 						Message:   *msg.Message(),
 						IP:        &fields.StringIP{IP: item.Sender},
 					}
-					// TODO - make parsing optional by flag
 					if viper.GetBool("syslog.msg.parse") {
 						event, err := atomic.ParseSyslogMessage(s)
 						if err != nil {

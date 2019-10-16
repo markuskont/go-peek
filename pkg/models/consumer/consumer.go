@@ -45,6 +45,11 @@ type Message struct {
 	// Can be original message or processed
 	Data []byte
 
+	// Optional processed version of data
+	// To avoid constantly re-encoding and decoding data just to pass it to different module
+	// but type switch will be needed to handle different types
+	Processed interface{}
+
 	// Message offset from input
 	// e.g. kafka offset or file line number
 	Offset int64
