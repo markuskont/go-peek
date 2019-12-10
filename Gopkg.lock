@@ -277,12 +277,12 @@
   version = "v1.0.5"
 
 [[projects]]
-  digest = "1:0b60fc944fb6a7b6c985832bd341bdb7ed8fe894fea330414e7774bb24652962"
+  digest = "1:8d0b79a29be9946ea00b2f2b778ec5b36db07453d97abe9d754b25bc2cc49a0e"
   name = "github.com/spf13/viper"
   packages = ["."]
   pruneopts = "UT"
-  revision = "72b022eb357a56469725dcd03918449e2278d02e"
-  version = "v1.5.0"
+  revision = "eabbc68a3ecd5cf8c11a2f84dbda5e7a38493b2f"
+  version = "v1.6.1"
 
 [[projects]]
   digest = "1:f4b32291cad5efac2bfdba89ccde6aa04618b62ce06c1a571da2dc4f3f2677fb"
@@ -301,7 +301,7 @@
     "pbkdf2",
   ]
   pruneopts = "UT"
-  revision = "86a70503ff7e82ffc18c7b0de83db35da4791e6a"
+  revision = "e9b2fee46413994441b28dfca259d911d963dfed"
 
 [[projects]]
   branch = "master"
@@ -312,15 +312,15 @@
     "proxy",
   ]
   pruneopts = "UT"
-  revision = "5ee1b9f4859acd2e99987ef94ec7a58427c53bef"
+  revision = "c0dbc17a35534bf2e581d7a942408dc936316da4"
 
 [[projects]]
   branch = "master"
-  digest = "1:4da420ceda5f68e8d748aa2169d0ed44ffadb1bbd6537cf778a49563104189b8"
+  digest = "1:634414cd43ed62a728aaf9b3e61fde85f012880f9b32b7d00678b6fd887ff9c1"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "ce4227a45e2eb77e5c847278dcc6a626742e2945"
+  revision = "ac6580df4449443a05718fd7858c1f91ad5f8d20"
 
 [[projects]]
   digest = "1:1093f2eb4b344996604f7d8b29a16c5b22ab9e1b25652140d3fede39f640d5cd"
@@ -336,6 +336,14 @@
   pruneopts = "UT"
   revision = "342b2e1fbaa52c93f31447ad2c6abc048c63e475"
   version = "v0.3.2"
+
+[[projects]]
+  digest = "1:591460fbfc463bda7071ac906bed19cbf64cffd5fcb80a6d1490e87b9dfad942"
+  name = "gopkg.in/ini.v1"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "87e589f4917038ae250cff2446db7573f47e97ca"
+  version = "v1.51.0"
 
 [[projects]]
   digest = "1:c902038ee2d6f964d3b9f2c718126571410c5d81251cbab9fe58abd37803513c"
