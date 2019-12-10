@@ -61,6 +61,7 @@ func ParseSyslog(data []byte, enum Atomic) (GameEvent, error) {
 			return nil, err
 		}
 		return &DynamicWinlogbeat{
+			Timestamp:         obj.Time(),
 			DynamicWinlogbeat: obj,
 		}, nil
 	}
@@ -100,6 +101,7 @@ const (
 )
 
 type DynamicWinlogbeat struct {
+	Timestamp time.Time `json:"@timestamp"`
 	atomic.DynamicWinlogbeat
 	GameMeta meta.GameAsset `json:"GameMeta,omitempty"`
 }

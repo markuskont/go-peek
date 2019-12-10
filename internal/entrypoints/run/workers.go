@@ -19,28 +19,8 @@ func spawnWorkers(
 	spooldir string,
 ) (<-chan *consumer.Message, *utils.ErrChan) {
 	tx := make(chan *consumer.Message, 0)
-	kafkaTopicToEvent := func(topic string) events.Atomic {
-		mapping := func() map[string]events.Atomic {
-			out := make(map[string]events.Atomic)
-			for _, event := range events.Atomics {
-				if src := viper.GetStringSlice(
-					fmt.Sprintf("stream.%s.kafka.topic", event.String()),
-				); len(src) > 0 {
-					for _, item := range src {
-						out[item] = event
-					}
-				}
-			}
-			return out
-		}()
-		if val, ok := mapping[topic]; ok {
-			return val
-		}
-		return events.SimpleE
-	}
 	errs := utils.NewErrChan(100, "Event parse worker runtime errors")
 	var wg sync.WaitGroup
-	//anon := viper.GetBool("processor.anonymize")
 	noparse := func() bool {
 		if !viper.GetBool("processor.enabled") {
 			log.Debug("all procesor plugins disabled globally, only parsing for timestamps")
@@ -48,48 +28,6 @@ func spawnWorkers(
 		}
 		return false
 	}()
-	/*
-			globalAssetCache, err := intel.NewGlobalCache(&intel.Config{
-				Wise: func() *wise.Config {
-					if viper.GetBool("processor.inputs.wise.enabled") {
-						wh := viper.GetString("processor.inputs.wise.host")
-						log.Debugf("wise enabled, configuring for host %s", wh)
-						return &wise.Config{Host: wh}
-					}
-					return nil
-				}(),
-				Prune: true,
-				DumpJSONAssets: func() string {
-					pth := viper.GetString("processor.persist.json.assets")
-					if exp, err := utils.ExpandHome(pth); err == nil {
-						pth = exp
-					}
-					if pth == "" || filepath.IsAbs(pth) {
-						return pth
-					}
-					return filepath.Join(spooldir, filepath.Base(pth))
-				}(),
-				LoadJSONnets: func() string {
-					pth := viper.GetString("processor.persist.json.networks")
-					if exp, err := utils.ExpandHome(pth); err == nil {
-						pth = exp
-					}
-					if pth == "" || filepath.IsAbs(pth) {
-						return pth
-					}
-					return filepath.Join(spooldir, filepath.Base(pth))
-				}(),
-			})
-		logContext := log.WithFields(log.Fields{
-			"action": "init global cache",
-			"thread": "main spawn",
-		})
-		if err != nil && !noparse {
-			logContext.Fatal(err)
-		} else if err != nil && noparse {
-			logContext.Warn(err)
-		}
-	*/
 	var (
 		count uint64
 		every = time.NewTicker(3 * time.Second)
@@ -105,6 +43,25 @@ func spawnWorkers(
 	go func() {
 		defer close(tx)
 		defer close(errs.Items)
+		mapping := func() map[string]events.Atomic {
+			out := make(map[string]events.Atomic)
+			for _, event := range events.Atomics {
+				if src := viper.GetStringSlice(
+					fmt.Sprintf("stream.%s.kafka.topic", event.String()),
+				); len(src) > 0 {
+					for _, item := range src {
+						out[item] = event
+					}
+				}
+			}
+			return out
+		}()
+		kafkaTopicToEvent := func(topic string) events.Atomic {
+			if val, ok := mapping[topic]; ok {
+				return val
+			}
+			return events.SimpleE
+		}
 		//defer globalAssetCache.Close()
 		for i := 0; i < workers; i++ {
 			wg.Add(1)
@@ -138,6 +95,7 @@ func spawnWorkers(
 						continue loop
 					}
 					msg.Time = e.Time()
+					msg.Key = evType.String()
 
 					meta := e.GetAsset()
 					if meta == nil {
