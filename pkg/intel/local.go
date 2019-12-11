@@ -80,15 +80,6 @@ func (l LocalCache) GetIP(key net.IP) (*Asset, bool) {
 	}
 	if l.parent != nil {
 
-		/*
-			log.WithFields(log.Fields{
-				"val":    key,
-				"worker": l.id,
-				"cache":  "local",
-			}).Trace("parent cache query")
-		*/
-
-		// TODO - async here?
 		if val, ok := l.parent.GetIP(key); ok {
 			l.assets[key.String()] = *val
 			return val, true

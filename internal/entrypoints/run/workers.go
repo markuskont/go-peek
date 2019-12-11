@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ccdcoe/go-peek/pkg/intel"
+	"github.com/ccdcoe/go-peek/pkg/intel/wise"
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/utils"
@@ -32,6 +34,26 @@ func spawnWorkers(
 		count uint64
 		every = time.NewTicker(3 * time.Second)
 	)
+	globalAssetCache, err := intel.NewGlobalCache(&intel.Config{
+		Wise: func() *wise.Config {
+			if viper.GetBool("processor.inputs.wise.enabled") {
+				wh := viper.GetString("processor.inputs.wise.host")
+				log.Debugf("wise enabled, configuring for host %s", wh)
+				return &wise.Config{Host: wh}
+			}
+			return nil
+		}(),
+		Prune: true,
+	})
+	logContext := log.WithFields(log.Fields{
+		"action": "init global cache",
+		"thread": "main spawn",
+	})
+	if err != nil && !noparse {
+		logContext.Fatal(err)
+	} else if err != nil && noparse {
+		logContext.Warn(err)
+	}
 	go func() {
 		for {
 			select {
@@ -70,10 +92,8 @@ func spawnWorkers(
 				defer log.Tracef("worker %d done", id)
 
 				log.Tracef("Spawning worker %d", id)
-				/*
-					localAssetCache := intel.NewLocalCache(globalAssetCache, id)
-					defer localAssetCache.Close()
-				*/
+				localAssetCache := intel.NewLocalCache(globalAssetCache, id)
+				defer localAssetCache.Close()
 
 			loop:
 				for msg := range rx {
@@ -106,28 +126,26 @@ func spawnWorkers(
 						continue loop
 					}
 
-					/*
-						// Asset checking stuff
-						if ip := meta.Asset.IP; ip != nil {
-							if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset {
-								meta.Asset = *val.Data
+					// Asset checking stuff
+					if ip := meta.Asset.IP; ip != nil {
+						if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset {
+							meta.Asset = *val.Data
+						}
+					}
+					if meta.Source != nil {
+						if ip := meta.Source.IP; ip != nil {
+							if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset && val.Data != nil {
+								meta.Source = val.Data
 							}
 						}
-						if meta.Source != nil {
-							if ip := meta.Source.IP; ip != nil {
-								if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset && val.Data != nil {
-									meta.Source = val.Data
-								}
+					}
+					if meta.Destination != nil {
+						if ip := meta.Destination.IP; ip != nil {
+							if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset && val.Data != nil {
+								meta.Destination = val.Data
 							}
 						}
-						if meta.Destination != nil {
-							if ip := meta.Destination.IP; ip != nil {
-								if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset && val.Data != nil {
-									meta.Destination = val.Data
-								}
-							}
-						}
-					*/
+					}
 
 					/*
 						meta.SetDirection()

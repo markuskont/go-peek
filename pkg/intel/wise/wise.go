@@ -62,9 +62,7 @@ func NewHandle(c *Config) (*Handle, error) {
 	}
 	h := &Handle{
 		Plugin: c.Plugin,
-		client: http.Client{
-			//Timeout: 500 * time.Millisecond,
-		},
+		client: http.Client{},
 	}
 	if u, err := url.Parse(c.Host); err != nil {
 		return nil, err
@@ -79,7 +77,7 @@ func NewHandle(c *Config) (*Handle, error) {
 }
 
 func QueryIP(h Handle, key net.IP) (APIResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 	req, err := http.NewRequest("GET", h.url.String()+"/ip/"+key.String(), nil)
 	if err != nil {
@@ -109,7 +107,7 @@ func QueryIP(h Handle, key net.IP) (APIResponse, error) {
 	return data, nil
 }
 
-func GetAsset(h Handle, key net.IP, hostKey, aliasKey, kernelKey string) (*meta.Asset, bool, error) {
+func GetAsset(h Handle, key net.IP, hostKey, aliasKey, osKey, vmKey string) (*meta.Asset, bool, error) {
 	resp, err := QueryIP(h, key)
 	if err != nil {
 		return nil, false, err
@@ -125,8 +123,11 @@ func GetAsset(h Handle, key net.IP, hostKey, aliasKey, kernelKey string) (*meta.
 			if aliasKey != "" && field.Field == aliasKey {
 				m.Alias = field.Value
 			}
-			if kernelKey != "" && field.Field == kernelKey {
-				m.Kernel = field.Value
+			if osKey != "" && field.Field == osKey {
+				m.OS = field.Value
+			}
+			if vmKey != "" && field.Field == vmKey {
+				m.VM = field.Value
 			}
 		}
 		return m, true, nil
