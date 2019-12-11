@@ -1,4 +1,4 @@
-package intel
+package assetcache
 
 import (
 	"encoding/json"

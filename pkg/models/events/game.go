@@ -34,7 +34,7 @@ func (e ErrEventParse) Error() string {
 	)
 }
 
-func ParseSyslog(data []byte, enum Atomic) (GameEvent, error) {
+func ParseSyslog(data []byte, enum Atomic) (interface{}, error) {
 	bestEffort := true
 	msg, err := rfc5424.NewParser().Parse(data, &bestEffort)
 	if err != nil {
@@ -129,6 +129,9 @@ func (d DynamicWinlogbeat) GetAsset() *meta.GameAsset {
 			Host: d.Sender(),
 			IP:   nil,
 		},
+		MitreAttack: &meta.MitreAttack{
+			Techniques: make([]meta.Technique, 0),
+		},
 		Source:      nil,
 		Destination: nil,
 	}
@@ -167,6 +170,9 @@ func (s Suricata) GetAsset() *meta.GameAsset {
 				}
 				return s.Syslog.IP.IP
 			}(),
+		},
+		MitreAttack: &meta.MitreAttack{
+			Techniques: make([]meta.Technique, 0),
 		},
 		Source: &meta.Asset{
 			IP: func() net.IP {
@@ -225,6 +231,9 @@ func (s Syslog) JSONFormat() ([]byte, error) { return json.Marshal(s) }
 func (s Syslog) GetAsset() *meta.GameAsset {
 	return &meta.GameAsset{
 		Directionality: meta.DirLocal,
+		MitreAttack: &meta.MitreAttack{
+			Techniques: make([]meta.Technique, 0),
+		},
 		Asset: meta.Asset{
 			Host: s.Syslog.Host,
 			IP: func() net.IP {
@@ -277,6 +286,9 @@ func (s Snoopy) GetAsset() *meta.GameAsset {
 				}
 				return s.Syslog.IP.IP
 			}(),
+		},
+		MitreAttack: &meta.MitreAttack{
+			Techniques: make([]meta.Technique, 0),
 		},
 		Directionality: func() meta.Directionality {
 			if s.Snoopy.SSH == nil {
@@ -347,6 +359,9 @@ func (e Eventlog) GetAsset() *meta.GameAsset {
 			Host: e.Sender(),
 			IP:   e.SenderIP(),
 		},
+		MitreAttack: &meta.MitreAttack{
+			Techniques: make([]meta.Technique, 0),
+		},
 	}
 }
 
@@ -394,7 +409,10 @@ func (z ZeekCobalt) GetAsset() *meta.GameAsset {
 		return nil
 	}
 	return &meta.GameAsset{
-		Asset:       meta.Asset{IP: src},
+		Asset: meta.Asset{IP: src},
+		MitreAttack: &meta.MitreAttack{
+			Techniques: make([]meta.Technique, 0),
+		},
 		Source:      srcFn(src),
 		Destination: srcFn(ipFn(z.IDRespH)),
 	}
@@ -437,7 +455,10 @@ func (m MazeRunner) GetAsset() *meta.GameAsset {
 		return nil
 	}
 	return &meta.GameAsset{
-		Asset:       meta.Asset{Host: m.MazeRunner.Sender()},
+		Asset: meta.Asset{Host: m.MazeRunner.Sender()},
+		MitreAttack: &meta.MitreAttack{
+			Techniques: make([]meta.Technique, 0),
+		},
 		Source:      srcFn(m.MazeRunner.GetSrcIP()),
 		Destination: srcFn(m.MazeRunner.GetDstIP()),
 	}

@@ -164,6 +164,18 @@ func initProcessorConfig() {
 	rootCmd.PersistentFlags().String("processor-inputs-wise-host", "http://localhost:8081",
 		`Remote Moloch WISE host that holds asset and IOC information.`)
 	viper.BindPFlag("processor.inputs.wise.host", rootCmd.PersistentFlags().Lookup("processor-inputs-wise-host"))
+
+	rootCmd.PersistentFlags().String("processor-inputs-redis-host", "localhost",
+		`Redis host for collecting asset and threat intel.`)
+	viper.BindPFlag("processor.inputs.redis.host", rootCmd.PersistentFlags().Lookup("processor-inputs-redis-host"))
+
+	rootCmd.PersistentFlags().Int("processor-inputs-redis-port", 6379,
+		`Redis port for collecting asset and threat intel.`)
+	viper.BindPFlag("processor.inputs.redis.port", rootCmd.PersistentFlags().Lookup("processor-inputs-redis-port"))
+
+	rootCmd.PersistentFlags().Int("processor-inputs-redis-db", 0,
+		`Redis database for collecting asset and threat intel.`)
+	viper.BindPFlag("processor.inputs.redis.db", rootCmd.PersistentFlags().Lookup("processor-inputs-redis-db"))
 }
 
 func initOutputConfig() {

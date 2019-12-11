@@ -10,6 +10,8 @@ require (
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21
 	github.com/eapache/queue v1.1.0
 	github.com/fsnotify/fsnotify v1.4.7
+	github.com/go-redis/redis v6.15.6+incompatible
+	github.com/go-redis/redis/v7 v7.0.0-beta.4 // indirect
 	github.com/golang/snappy v0.0.1
 	github.com/hashicorp/go-uuid v1.0.1
 	github.com/hashicorp/hcl v1.0.0
