@@ -20,10 +20,10 @@ type AssetGetterSetter interface {
 type GameAsset struct {
 	Asset
 
-	DirectionString string
-	Directionality
+	DirectionString string `json:"DirectionString"`
+	Directionality  `json:"Directionality"`
 
-	MitreAttack *MitreAttack
+	MitreAttack *MitreAttack `json:"MitreAttack"`
 
 	Source      *Asset `json:"Src"`
 	Destination *Asset `json:"Dest"`
