@@ -131,11 +131,16 @@ func spawnWorkers(
 						if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset {
 							meta.Asset = *val.Data
 						}
+					} else if host := meta.Asset.Host; host != "" {
+						if val, ok := localAssetCache.GetString(host); ok && val.IsAsset {
+							meta.Asset = *val.Data
+						}
 					}
 					if meta.Source != nil {
 						if ip := meta.Source.IP; ip != nil {
 							if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset && val.Data != nil {
 								meta.Source = val.Data
+								meta.Source.IP = ip
 							}
 						}
 					}
@@ -143,6 +148,7 @@ func spawnWorkers(
 						if ip := meta.Destination.IP; ip != nil {
 							if val, ok := localAssetCache.GetIP(ip); ok && val.IsAsset && val.Data != nil {
 								meta.Destination = val.Data
+								meta.Destination.IP = ip
 							}
 						}
 					}

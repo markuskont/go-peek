@@ -3,7 +3,6 @@ package intel
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"sync"
 	"time"
@@ -160,11 +159,11 @@ func (g *GlobalCache) Close() error {
 	return nil
 }
 
-func (g GlobalCache) GetIP(key net.IP) (*Asset, bool) {
+func (g GlobalCache) GetString(key string) (*Asset, bool) {
 	if g.assets == nil {
 		return nil, false
 	}
-	if val, ok := g.assets.Load(key.String()); ok {
+	if val, ok := g.assets.Load(key); ok {
 		switch v := val.(type) {
 		case Asset:
 			return &v, true
@@ -190,6 +189,6 @@ func (g GlobalCache) GetIP(key net.IP) (*Asset, bool) {
 		asset.Data = a
 		asset.IsAsset = true
 	}
-	g.assets.Store(key.String(), asset)
+	g.assets.Store(key, asset)
 	return asset, false
 }
