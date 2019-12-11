@@ -84,7 +84,7 @@ func spawnWorkers(
 			}
 			return events.SimpleE
 		}
-		//defer globalAssetCache.Close()
+		defer globalAssetCache.Close()
 		for i := 0; i < workers; i++ {
 			wg.Add(1)
 			go func(id int) {
@@ -154,7 +154,6 @@ func spawnWorkers(
 					}
 
 					/*
-						meta.SetDirection()
 						if anon {
 							// TODO - also get rid of host name fields in message
 							meta.Host = meta.Alias
@@ -167,7 +166,7 @@ func spawnWorkers(
 						}
 					*/
 
-					e.SetAsset(*meta)
+					e.SetAsset(*meta.SetDirection())
 					modified, err := e.JSONFormat()
 					if err != nil {
 						errs.Send(err)
