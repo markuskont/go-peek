@@ -12,6 +12,7 @@ import (
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/ccdcoe/go-peek/pkg/models/meta"
+	"github.com/ccdcoe/go-peek/pkg/parsers"
 	"github.com/ccdcoe/go-peek/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -123,7 +124,7 @@ func spawnWorkers(
 						continue loop
 					}
 
-					ev, err := events.ParseSyslog(msg.Data, evType)
+					ev, err := parsers.ParseSyslogGameEvent(msg.Data, evType)
 					if err != nil {
 						errs.Send(err)
 						continue loop
