@@ -114,6 +114,14 @@ func (c Consumer) Files() []string {
 	}
 	return f
 }
+func (c Consumer) GetFileListing() []string {
+	files := make([]string, 0)
+	for _, f := range c.h {
+		files = append(files, f.Path.String())
+	}
+	return files
+}
+
 func (c Consumer) close() error {
 	if c.stoppers == nil || len(c.stoppers) != c.workers {
 		return fmt.Errorf("Log file consumer not instanciated properly, cannot close")

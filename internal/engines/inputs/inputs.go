@@ -48,6 +48,13 @@ func Create(workers int, spooldir string) ([]consumer.Messager, []context.Cancel
 		if err != nil {
 			log.Fatal(err)
 		}
+		fileListing := consumer.GetFileListing()
+		for _, f := range fileListing {
+			log.WithFields(log.Fields{
+				"fn":   "file input create",
+				"file": f,
+			}).Trace()
+		}
 		inputs = append(inputs, consumer)
 		stoppers = append(stoppers, cancel)
 	}
