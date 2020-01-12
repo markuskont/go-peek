@@ -35,6 +35,12 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
+		go func() {
+			timeout := 15 * time.Second
+			fallback := time.NewTicker(timeout)
+			<-fallback.C
+			log.Fatalf("SIGINT handler unable to stop stream, forcing after %d second timeout", int(timeout.Seconds()))
+		}()
 		for _, stop := range stoppers {
 			stop()
 		}
