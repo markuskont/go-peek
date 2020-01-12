@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ccdcoe/go-peek/internal/helpers"
-	"github.com/ccdcoe/go-peek/pkg/ingest/kafka"
+	"github.com/ccdcoe/go-peek/pkg/ingest/kafka/v1"
 	"github.com/ccdcoe/go-peek/pkg/ingest/logfile"
 	"github.com/ccdcoe/go-peek/pkg/ingest/uxsock"
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
