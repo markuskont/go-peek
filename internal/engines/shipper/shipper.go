@@ -8,6 +8,7 @@ import (
 
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/outputs/elastic"
+	"github.com/ccdcoe/go-peek/pkg/outputs/filestorage"
 	"github.com/ccdcoe/go-peek/pkg/outputs/kafka"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -29,9 +30,10 @@ func Send(msgs <-chan *consumer.Message) error {
 		}()
 		elaEnabled   = viper.GetBool("output.elastic.enabled")
 		kafkaEnabled = viper.GetBool("output.kafka.enabled")
+		fileEnabled  = viper.GetBool("output.file.enabled")
 	)
 
-	if !stdout && !fifoEnabled && !elaEnabled && !kafkaEnabled {
+	if !stdout && !fifoEnabled && !elaEnabled && !kafkaEnabled && !fileEnabled {
 		log.Fatal("No outputs configured. See --help.")
 	}
 
@@ -45,6 +47,7 @@ func Send(msgs <-chan *consumer.Message) error {
 	}()
 	elaCh := make(chan consumer.Message, 100)
 	kafkaCh := make(chan consumer.Message, 100)
+	fileCh := make(chan consumer.Message, 100)
 
 	defer close(stdoutCh)
 	defer func() {
@@ -54,6 +57,7 @@ func Send(msgs <-chan *consumer.Message) error {
 	}()
 	defer close(elaCh)
 	defer close(kafkaCh)
+	defer close(fileCh)
 
 	if kafkaEnabled {
 		var fn consumer.TopicMapFn
@@ -167,6 +171,18 @@ func Send(msgs <-chan *consumer.Message) error {
 			}(fifoCh[i])
 		}
 	}
+	if fileEnabled {
+		writer, err := filestorage.NewHandle(&filestorage.Config{
+			Combined:  viper.GetString("output.file.path"),
+			Gzip:      viper.GetBool("output.file.gzip"),
+			Timestamp: viper.GetBool("output.file.timestamp"),
+			Stream:    fileCh,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		writer.Do(context.TODO())
+	}
 
 	for m := range msgs {
 		if stdout {
@@ -182,6 +198,9 @@ func Send(msgs <-chan *consumer.Message) error {
 		}
 		if kafkaEnabled {
 			kafkaCh <- *m
+		}
+		if fileEnabled {
+			fileCh <- *m
 		}
 	}
 	return nil

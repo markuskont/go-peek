@@ -234,6 +234,23 @@ func initOutputConfig() {
 	rootCmd.PersistentFlags().Bool("output-stdout", false,
 		`Print output messages to stdout. Good for simple cli piping and debug.`)
 	viper.BindPFlag("output.stdout", rootCmd.PersistentFlags().Lookup("output-stdout"))
+
+	// regular file output
+	rootCmd.PersistentFlags().Bool("output-file-enabled", false,
+		`Write all messages to single file. Good for creating and archive.`)
+	viper.BindPFlag("output.file.enabled", rootCmd.PersistentFlags().Lookup("output-file-enabled"))
+
+	rootCmd.PersistentFlags().String("output-file-path", "",
+		`Path for output file.`)
+	viper.BindPFlag("output.file.path", rootCmd.PersistentFlags().Lookup("output-file-path"))
+
+	rootCmd.PersistentFlags().Bool("output-file-gzip", false,
+		`Write directly to gzip file. Reduces disk usage by approximately 90 per cent. Cannot be used together with --output-file-rotate.`)
+	viper.BindPFlag("output.file.gzip", rootCmd.PersistentFlags().Lookup("output-file-gzip"))
+
+	rootCmd.PersistentFlags().Bool("output-file-timestamp", false,
+		`Append timestamp to output file name. Useful for keeping track in case consumer breaks.`)
+	viper.BindPFlag("output.file.timestamp", rootCmd.PersistentFlags().Lookup("output-file-timestamp"))
 }
 
 func initLogging() {

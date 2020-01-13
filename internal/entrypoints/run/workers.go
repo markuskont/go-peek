@@ -14,6 +14,7 @@ import (
 	"github.com/ccdcoe/go-peek/pkg/models/meta"
 	"github.com/ccdcoe/go-peek/pkg/parsers"
 	"github.com/ccdcoe/go-peek/pkg/utils"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
