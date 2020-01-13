@@ -49,6 +49,7 @@ func Send(msgs <-chan *consumer.Message) error {
 	kafkaCh := make(chan consumer.Message, 100)
 	fileCh := make(chan consumer.Message, 100)
 
+	defer close(fileCh)
 	defer close(stdoutCh)
 	defer func() {
 		for _, ch := range fifoCh {
@@ -57,7 +58,6 @@ func Send(msgs <-chan *consumer.Message) error {
 	}()
 	defer close(elaCh)
 	defer close(kafkaCh)
-	defer close(fileCh)
 
 	if kafkaEnabled {
 		var fn consumer.TopicMapFn
@@ -171,17 +171,23 @@ func Send(msgs <-chan *consumer.Message) error {
 			}(fifoCh[i])
 		}
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	if fileEnabled {
 		writer, err := filestorage.NewHandle(&filestorage.Config{
-			Combined:  viper.GetString("output.file.path"),
-			Gzip:      viper.GetBool("output.file.gzip"),
-			Timestamp: viper.GetBool("output.file.timestamp"),
-			Stream:    fileCh,
+			Combined:       viper.GetString("output.file.path"),
+			Gzip:           viper.GetBool("output.file.gzip"),
+			Timestamp:      viper.GetBool("output.file.timestamp"),
+			Stream:         fileCh,
+			RotateEnabled:  viper.GetBool("output.file.rotate.enabled"),
+			RotateInterval: viper.GetDuration("output.file.rotate.interval"),
 		})
 		if err != nil {
 			log.Fatal(err)
 		}
-		writer.Do(context.TODO())
+		if err := writer.Do(ctx); err != nil {
+			log.Fatal(err)
+		}
+		defer writer.Wait()
 	}
 
 	for m := range msgs {
@@ -203,5 +209,6 @@ func Send(msgs <-chan *consumer.Message) error {
 			fileCh <- *m
 		}
 	}
+	cancel()
 	return nil
 }
