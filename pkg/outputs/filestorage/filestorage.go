@@ -12,6 +12,7 @@ import (
 
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -107,8 +108,8 @@ func NewHandle(c *Config) (*Handle, error) {
 
 func (h *Handle) Do(ctx context.Context) error {
 	// function for formatting output file name
-	filenameFunc := func(ts time.Time, path string, timestamp bool) string {
-		if timestamp {
+	filenameFunc := func(ts time.Time, path string) string {
+		if h.timestamp || h.rotate != nil {
 			path = fmt.Sprintf("%s.%s", path, ts.Format(TimeFmt))
 		}
 		if h.gzip {
@@ -131,40 +132,50 @@ func (h *Handle) Do(ctx context.Context) error {
 		defer close(combineCh)
 		defer h.wg.Done()
 
-		for msg := range h.rx {
-			if h.combinedEnabled {
-				combineCh <- msg
-			}
-
-			if h.filterEnabled {
-				key := msg.Event.String()
-				if ch, ok := h.filterChannels[key]; ok {
-					ch <- msg
-				} else {
-					h.mu.Lock()
-					ch := make(chan consumer.Message, 0)
-					h.filterChannels[key] = ch
-					h.mu.Unlock()
-
-					now := time.Now()
-					if err := writeSingleFile(
-						func() string {
-							path := fmt.Sprintf("%s", path.Join(h.dir, msg.Event.String()))
-							if h.timestamp {
-								path = fmt.Sprintf("%s.%s", path, now.Format(TimeFmt))
-							}
-							if h.gzip {
-								path = fmt.Sprintf("%s.gz", path)
-							}
-							return path
-						}(),
-						*h.errs, ch, h.gzip, context.TODO(), h.wg); err != nil {
-						h.errs.Send(err)
-					}
-
+	loop:
+		for {
+			select {
+			case msg, ok := <-h.rx:
+				if !ok {
+					break loop
 				}
+				if h.combinedEnabled {
+					combineCh <- msg
+				}
+
+				if h.filterEnabled {
+					key := msg.Event.String()
+					if ch, ok := h.filterChannels[key]; ok {
+						ch <- msg
+					} else {
+						h.mu.Lock()
+						ch := make(chan consumer.Message, 0)
+						h.filterChannels[key] = ch
+						h.mu.Unlock()
+
+						now := time.Now()
+						if err := writeSingleFile(
+							func() string {
+								path := fmt.Sprintf("%s", path.Join(h.dir, msg.Event.String()))
+								if h.timestamp || h.rotate != nil {
+									path = fmt.Sprintf("%s.%s", path, now.Format(TimeFmt))
+								}
+								if h.gzip {
+									path = fmt.Sprintf("%s.gz", path)
+								}
+								return path
+							}(),
+							*h.errs, ch, h.gzip, context.TODO(), h.wg); err != nil {
+							h.errs.Send(err)
+						}
+					}
+				}
+
+			case <-ctx.Done():
+				break loop
 			}
 		}
+		log.Trace("filestorage filter loop good exit")
 	}()
 
 	if h.combinedEnabled {
@@ -173,7 +184,7 @@ func (h *Handle) Do(ctx context.Context) error {
 		} else {
 			now := time.Now()
 			if err := writeSingleFile(
-				filenameFunc(now, h.combined, h.timestamp),
+				filenameFunc(now, h.combined),
 				*h.errs,
 				combineCh,
 				h.gzip,
@@ -216,20 +227,24 @@ func writeSingleFile(
 	}()
 	wg.Add(1)
 	go func() {
-		defer f.Close()
 		defer w.Close()
+		defer f.Close()
 		defer wg.Done()
 		var written int
 	loop:
 		for {
 			select {
-			case msg := <-rx:
+			case msg, ok := <-rx:
+				if !ok {
+					break loop
+				}
 				fmt.Fprintf(w, "%s\n", string(msg.Data))
 				written++
 			case <-ctx.Done():
 				break loop
 			}
 		}
+		log.Tracef("%s proper exit", path)
 	}()
 	return nil
 }

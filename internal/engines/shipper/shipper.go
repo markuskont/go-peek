@@ -39,7 +39,7 @@ func Send(
 		log.Fatal("No outputs configured. See --help.")
 	}
 
-	bufsize := 1000
+	bufsize := 0
 	stdoutCh := make(chan consumer.Message, bufsize)
 	fifoCh := func() []chan consumer.Message {
 		chSl := make([]chan consumer.Message, len(fifoPaths))
@@ -52,7 +52,10 @@ func Send(
 	kafkaCh := make(chan consumer.Message, bufsize)
 	fileCh := make(chan consumer.Message, bufsize)
 
-	defer close(fileCh)
+	defer func() {
+		close(fileCh)
+		log.Trace("closing filestorage channel")
+	}()
 	defer close(stdoutCh)
 	defer func() {
 		for _, ch := range fifoCh {
@@ -174,16 +177,17 @@ func Send(
 			}(fifoCh[i])
 		}
 	}
-	ctx, _ := context.WithCancel(context.Background())
+
+	ctx, cancel := context.WithCancel(context.Background())
 	if fileEnabled {
 		writer, err := filestorage.NewHandle(&filestorage.Config{
 			Dir:            viper.GetString("output.file.dir"),
 			Combined:       viper.GetString("output.file.path"),
 			Gzip:           viper.GetBool("output.file.gzip"),
 			Timestamp:      viper.GetBool("output.file.timestamp"),
-			Stream:         fileCh,
 			RotateEnabled:  viper.GetBool("output.file.rotate.enabled"),
 			RotateInterval: viper.GetDuration("output.file.rotate.interval"),
+			Stream:         fileCh,
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -191,7 +195,7 @@ func Send(
 		if err := writer.Do(ctx); err != nil {
 			log.Fatal(err)
 		}
-		//defer writer.Wait()
+		defer writer.Wait()
 		go func() {
 			for err := range writer.Errors() {
 				log.Error(err)
@@ -218,6 +222,6 @@ func Send(
 			fileCh <- *m
 		}
 	}
-	//cancel()
+	cancel()
 	return nil
 }
