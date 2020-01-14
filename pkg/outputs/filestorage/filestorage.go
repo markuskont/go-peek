@@ -27,6 +27,7 @@ type Config struct {
 	Stream    <-chan consumer.Message
 
 	RotateEnabled  bool
+	RotateGzip     bool
 	RotateInterval time.Duration
 }
 
@@ -65,7 +66,8 @@ type Handle struct {
 	timestamp bool
 	gzip      bool
 
-	rotate *time.Ticker
+	rotateTicker *time.Ticker
+	rotate       bool
 
 	mu *sync.Mutex
 	wg *sync.WaitGroup
@@ -96,12 +98,8 @@ func NewHandle(c *Config) (*Handle, error) {
 			}
 			return false
 		}(),
-		rotate: func() *time.Ticker {
-			if c.RotateEnabled {
-				return time.NewTicker(c.RotateInterval)
-			}
-			return nil
-		}(),
+		rotateTicker:   time.NewTicker(c.RotateInterval),
+		rotate:         c.RotateEnabled,
 		filterChannels: make(map[string]chan consumer.Message),
 	}, nil
 }
@@ -109,7 +107,7 @@ func NewHandle(c *Config) (*Handle, error) {
 func (h *Handle) Do(ctx context.Context) error {
 	// function for formatting output file name
 	filenameFunc := func(ts time.Time, path string) string {
-		if h.timestamp || h.rotate != nil {
+		if h.timestamp || h.rotate {
 			path = fmt.Sprintf("%s.%s", path, ts.Format(TimeFmt))
 		}
 		if h.gzip {
@@ -156,18 +154,18 @@ func (h *Handle) Do(ctx context.Context) error {
 						h.mu.Unlock()
 
 						now := time.Now()
-						if err := writeSingleFile(
-							func() string {
-								path := fmt.Sprintf("%s", path.Join(h.dir, msg.Event.String()))
-								if h.timestamp || h.rotate != nil {
-									path = fmt.Sprintf("%s.%s", path, now.Format(TimeFmt))
-								}
-								if h.gzip {
-									path = fmt.Sprintf("%s.gz", path)
-								}
-								return path
-							}(),
-							*h.errs, ch, h.gzip, context.TODO(), h.wg); err != nil {
+						path := func() string {
+							path := fmt.Sprintf("%s", path.Join(h.dir, msg.Event.String()))
+							if h.timestamp || h.rotate {
+								path = fmt.Sprintf("%s.%s", path, now.Format(TimeFmt))
+							}
+							if h.gzip {
+								path = fmt.Sprintf("%s.gz", path)
+							}
+							return path
+						}()
+						log.Tracef("creating new log file %s", path)
+						if err := writeSingleFile(path, *h.errs, ch, h.gzip, context.TODO(), h.wg); err != nil {
 							h.errs.Send(err)
 						}
 					}
@@ -175,27 +173,30 @@ func (h *Handle) Do(ctx context.Context) error {
 
 			case <-ctx.Done():
 				break loop
-				//case _, ok := <-h.rotate.C:
+			case <-h.rotateTicker.C:
+				h.mu.Lock()
+				for k, v := range h.filterChannels {
+					close(v)
+					delete(h.filterChannels, k)
+					log.Tracef("rotated event %s", k)
+				}
+				h.mu.Unlock()
 			}
 		}
 		log.Trace("filestorage filter loop good exit")
 	}()
 
 	if h.combinedEnabled {
-		if h.rotate != nil {
-			panic("NOT IMPLEMENTED")
-		} else {
-			now := time.Now()
-			if err := writeSingleFile(
-				filenameFunc(now, h.combined),
-				*h.errs,
-				combineCh,
-				h.gzip,
-				context.TODO(),
-				h.wg,
-			); err != nil {
-				return err
-			}
+		now := time.Now()
+		if err := writeSingleFile(
+			filenameFunc(now, h.combined),
+			*h.errs,
+			combineCh,
+			h.gzip,
+			context.TODO(),
+			h.wg,
+		); err != nil {
+			return err
 		}
 	}
 

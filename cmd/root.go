@@ -261,6 +261,10 @@ func initOutputConfig() {
 		`Enable periodic log file rotation.`)
 	viper.BindPFlag("output.file.rotate.enabled", rootCmd.PersistentFlags().Lookup("output-file-rotate-enabled"))
 
+	rootCmd.PersistentFlags().Bool("output-file-rotate-gzip", false,
+		`Gzip compress log files post-rotation.`)
+	viper.BindPFlag("output.file.rotate.gzip", rootCmd.PersistentFlags().Lookup("output-file-rotate-gzip"))
+
 	rootCmd.PersistentFlags().Duration("output-file-rotate-interval", 1*time.Hour,
 		`Interval for rotating output files if enabled with --output-file-rotate-enabled.`)
 	viper.BindPFlag("output.file.rotate.interval", rootCmd.PersistentFlags().Lookup("output-file-rotate-interval"))
