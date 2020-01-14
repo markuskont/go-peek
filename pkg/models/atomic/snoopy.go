@@ -138,7 +138,7 @@ func ParseSnoopy(m string) (*Snoopy, error) {
 		obj.Cwd = bites[3]
 		obj.Filename = bites[4]
 	default:
-		return nil, ErrParseSnoopy{Msg: m}
+		return nil, ErrParseSnoopy{Msg: m, Reason: "Undefined msg length"}
 	}
 	return obj, nil
 }
