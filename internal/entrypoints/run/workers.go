@@ -70,22 +70,7 @@ func spawnWorkers(
 	go func() {
 		defer close(tx)
 		defer close(errs.Items)
-		/*
-			mapping := func() map[string]events.Atomic {
-				out := make(map[string]events.Atomic)
-				for _, event := range events.Atomics {
-					if src := viper.GetStringSlice(
-						fmt.Sprintf("stream.%s.kafka.topic", event.String()),
-					); len(src) > 0 {
-						for _, item := range src {
-							out[item] = event
-						}
-					}
-				}
-				return out
-			}()
-		*/
-		kafkaTopicToEvent := func(topic string) events.Atomic {
+		sourceToEvent := func(topic string) events.Atomic {
 			if val, ok := mapping[topic]; ok {
 				return val
 			}
@@ -117,11 +102,10 @@ func spawnWorkers(
 			loop:
 				for msg := range rx {
 					atomic.AddUint64(&count, 1)
-					evType := msg.Event
-					switch msg.Type {
-					case consumer.Kafka:
-						evType = kafkaTopicToEvent(msg.Source)
-					}
+
+					evType := sourceToEvent(msg.Source)
+					msg.Event = evType
+
 					if noparse {
 						msg.Time = time.Now()
 						tx <- msg

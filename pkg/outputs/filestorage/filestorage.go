@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ var (
 )
 
 type Config struct {
+	Dir       string
 	Combined  string
 	Gzip      bool
 	Timestamp bool
@@ -31,21 +33,19 @@ func (c *Config) Validate() error {
 	if c == nil {
 		c = &Config{}
 	}
-	if c.Combined == "" {
+	if c.Stream == nil {
+		return fmt.Errorf("missing input stream for filestorage")
+	}
+	if c.Combined == "" && c.Dir == "" {
 		return fmt.Errorf(
 			"filestorage module requires either a root directory or explicit destination file for storing events",
 		)
 	}
-	if c.Stream == nil {
-		return fmt.Errorf("missing input stream for filestorage")
-	}
-	/*
-		if c.Directory != "" {
-			if !utils.StringIsValidDir(c.Directory) {
-				return fmt.Errorf("path %s is not valid directory", c.Directory)
-			}
+	if c.Dir != "" {
+		if !utils.StringIsValidDir(c.Dir) {
+			return fmt.Errorf("path %s is not valid directory", c.Dir)
 		}
-	*/
+	}
 	return nil
 }
 
@@ -53,13 +53,20 @@ type Handle struct {
 	errs *utils.ErrChan
 	rx   <-chan consumer.Message
 
+	filterChannels map[string]chan consumer.Message
+	filterEnabled  bool
+
+	combinedEnabled bool
+
 	combined string
+	dir      string
 
 	timestamp bool
 	gzip      bool
 
 	rotate *time.Ticker
 
+	mu *sync.Mutex
 	wg *sync.WaitGroup
 }
 
@@ -73,20 +80,35 @@ func NewHandle(c *Config) (*Handle, error) {
 		timestamp: c.Timestamp,
 		gzip:      c.Gzip,
 		combined:  c.Combined,
+		dir:       c.Dir,
 		wg:        &sync.WaitGroup{},
+		mu:        &sync.Mutex{},
+		combinedEnabled: func() bool {
+			if c.Combined != "" {
+				return true
+			}
+			return false
+		}(),
+		filterEnabled: func() bool {
+			if c.Dir != "" {
+				return true
+			}
+			return false
+		}(),
 		rotate: func() *time.Ticker {
 			if c.RotateEnabled {
 				return time.NewTicker(c.RotateInterval)
 			}
 			return nil
 		}(),
+		filterChannels: make(map[string]chan consumer.Message),
 	}, nil
 }
 
 func (h *Handle) Do(ctx context.Context) error {
 	// function for formatting output file name
-	filenameFunc := func(ts time.Time, path string) string {
-		if h.timestamp {
+	filenameFunc := func(ts time.Time, path string, timestamp bool) string {
+		if timestamp {
 			path = fmt.Sprintf("%s.%s", path, ts.Format(TimeFmt))
 		}
 		if h.gzip {
@@ -95,27 +117,79 @@ func (h *Handle) Do(ctx context.Context) error {
 		return path
 	}
 
-	channels := make(map[string]<-chan consumer.Message)
+	h.wg.Add(1)
+	combineCh := make(chan consumer.Message, 0)
+	if h.filterChannels == nil {
+		h.filterChannels = make(map[string]chan consumer.Message)
+	}
+	go func() {
+		defer func() {
+			for _, ch := range h.filterChannels {
+				close(ch)
+			}
+		}()
+		defer close(combineCh)
+		defer h.wg.Done()
 
-	channels["combined"] = func() <-chan consumer.Message {
-		return h.rx
+		for msg := range h.rx {
+			if h.combinedEnabled {
+				combineCh <- msg
+			}
+
+			if h.filterEnabled {
+				key := msg.Event.String()
+				if ch, ok := h.filterChannels[key]; ok {
+					ch <- msg
+				} else {
+					h.mu.Lock()
+					ch := make(chan consumer.Message, 0)
+					h.filterChannels[key] = ch
+					h.mu.Unlock()
+
+					now := time.Now()
+					if err := writeSingleFile(
+						func() string {
+							path := fmt.Sprintf("%s", path.Join(h.dir, msg.Event.String()))
+							if h.timestamp {
+								path = fmt.Sprintf("%s.%s", path, now.Format(TimeFmt))
+							}
+							if h.gzip {
+								path = fmt.Sprintf("%s.gz", path)
+							}
+							return path
+						}(),
+						*h.errs, ch, h.gzip, context.TODO(), h.wg); err != nil {
+						h.errs.Send(err)
+					}
+
+				}
+			}
+		}
 	}()
 
-	if h.combined != "" {
+	if h.combinedEnabled {
 		if h.rotate != nil {
-
+			panic("NOT IMPLEMENTED")
 		} else {
 			now := time.Now()
-			if err := writeSingleFile(filenameFunc(
-				now,
-				h.combined,
-			), *h.errs, h.rx, h.gzip, ctx, h.wg); err != nil {
+			if err := writeSingleFile(
+				filenameFunc(now, h.combined, h.timestamp),
+				*h.errs,
+				combineCh,
+				h.gzip,
+				context.TODO(),
+				h.wg,
+			); err != nil {
 				return err
 			}
 		}
 	}
 
 	return nil
+}
+
+func (h Handle) Errors() <-chan error {
+	return h.errs.Items
 }
 
 func writeSingleFile(
