@@ -24,7 +24,8 @@ type Config struct {
 	Combined  string
 	Gzip      bool
 	Timestamp bool
-	Stream    <-chan consumer.Message
+
+	Stream <-chan consumer.Message
 
 	RotateEnabled  bool
 	RotateGzip     bool
@@ -51,11 +52,17 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+type logFile struct {
+	rx   chan consumer.Message
+	path string
+	done chan bool
+}
+
 type Handle struct {
 	errs *utils.ErrChan
 	rx   <-chan consumer.Message
 
-	filterChannels map[string]chan consumer.Message
+	filterChannels map[string]*logFile
 	filterEnabled  bool
 
 	combinedEnabled bool
@@ -100,7 +107,7 @@ func NewHandle(c *Config) (*Handle, error) {
 		}(),
 		rotateTicker:   time.NewTicker(c.RotateInterval),
 		rotate:         c.RotateEnabled,
-		filterChannels: make(map[string]chan consumer.Message),
+		filterChannels: make(map[string]*logFile),
 	}, nil
 }
 
@@ -119,13 +126,14 @@ func (h *Handle) Do(ctx context.Context) error {
 	h.wg.Add(1)
 	combineCh := make(chan consumer.Message, 0)
 	if h.filterChannels == nil {
-		h.filterChannels = make(map[string]chan consumer.Message)
+		h.filterChannels = make(map[string]*logFile)
 	}
 	go func() {
 		defer func() {
 			if h.filterChannels != nil {
-				for _, ch := range h.filterChannels {
-					close(ch)
+				for _, obj := range h.filterChannels {
+					close(obj.rx)
+					<-obj.done
 				}
 			}
 		}()
@@ -145,27 +153,35 @@ func (h *Handle) Do(ctx context.Context) error {
 
 				if h.filterEnabled {
 					key := msg.Event.String()
-					if ch, ok := h.filterChannels[key]; ok {
-						ch <- msg
+					if obj, ok := h.filterChannels[key]; ok {
+						obj.rx <- msg
 					} else {
-						h.mu.Lock()
-						ch := make(chan consumer.Message, 0)
-						h.filterChannels[key] = ch
-						h.mu.Unlock()
-
 						now := time.Now()
 						path := func() string {
 							path := fmt.Sprintf("%s", path.Join(h.dir, msg.Event.String()))
 							if h.timestamp || h.rotate {
 								path = fmt.Sprintf("%s.%s", path, now.Format(TimeFmt))
 							}
-							if h.gzip {
-								path = fmt.Sprintf("%s.gz", path)
-							}
 							return path
 						}()
+						h.mu.Lock()
+						ch := make(chan consumer.Message, 0)
+						obj := &logFile{
+							path: path,
+							rx:   ch,
+							done: make(chan bool),
+						}
+						h.filterChannels[key] = obj
+						h.mu.Unlock()
+
 						log.Tracef("creating new log file %s", path)
-						if err := writeSingleFile(path, *h.errs, ch, h.gzip, context.TODO(), h.wg); err != nil {
+						if err := writeSingleFile(
+							*obj,
+							*h.errs,
+							false,
+							context.TODO(),
+							h.wg,
+						); err != nil {
 							h.errs.Send(err)
 						}
 					}
@@ -176,9 +192,24 @@ func (h *Handle) Do(ctx context.Context) error {
 			case <-h.rotateTicker.C:
 				h.mu.Lock()
 				for k, v := range h.filterChannels {
-					close(v)
+					old := v
+					close(v.rx)
 					delete(h.filterChannels, k)
 					log.Tracef("rotated event %s", k)
+
+					go func(source string, done chan bool) {
+						h.wg.Add(1)
+						defer h.wg.Done()
+						<-done
+						log.Tracef("compressing %s", old.path)
+						if err := utils.GzipCompress(source, fmt.Sprintf("%s.gz", source)); err != nil {
+							h.errs.Send(err)
+						}
+						log.Tracef("done compressing %s", old.path)
+						if err := os.Remove(source); err != nil {
+							h.errs.Send(err)
+						}
+					}(old.path, old.done)
 				}
 				h.mu.Unlock()
 			}
@@ -189,9 +220,12 @@ func (h *Handle) Do(ctx context.Context) error {
 	if h.combinedEnabled {
 		now := time.Now()
 		if err := writeSingleFile(
-			filenameFunc(now, h.combined),
+			logFile{
+				path: filenameFunc(now, h.combined),
+				rx:   combineCh,
+				done: nil,
+			},
 			*h.errs,
-			combineCh,
 			h.gzip,
 			context.TODO(),
 			h.wg,
@@ -208,14 +242,13 @@ func (h Handle) Errors() <-chan error {
 }
 
 func writeSingleFile(
-	path string,
+	l logFile,
 	errs utils.ErrChan,
-	rx <-chan consumer.Message,
 	gz bool,
 	ctx context.Context,
 	wg *sync.WaitGroup,
 ) error {
-	path, err := utils.ExpandHome(path)
+	path, err := utils.ExpandHome(l.path)
 	if err != nil {
 		return err
 	}
@@ -232,13 +265,12 @@ func writeSingleFile(
 	wg.Add(1)
 	go func() {
 		defer w.Close()
-		defer f.Close()
 		defer wg.Done()
 		var written int
 	loop:
 		for {
 			select {
-			case msg, ok := <-rx:
+			case msg, ok := <-l.rx:
 				if !ok {
 					break loop
 				}
@@ -247,6 +279,9 @@ func writeSingleFile(
 			case <-ctx.Done():
 				break loop
 			}
+		}
+		if l.done != nil {
+			l.done <- true
 		}
 		log.Tracef("%s proper exit", path)
 	}()

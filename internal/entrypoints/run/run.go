@@ -38,7 +38,7 @@ func Entrypoint(cmd *cobra.Command, args []string) {
 	go func() {
 		<-c
 		go func() {
-			timeout := 3 * time.Second
+			timeout := 10 * time.Second
 			fallback := time.NewTicker(timeout)
 			<-fallback.C
 			log.Fatalf(
