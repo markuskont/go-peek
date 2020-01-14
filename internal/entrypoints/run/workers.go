@@ -23,6 +23,7 @@ func spawnWorkers(
 	rx <-chan *consumer.Message,
 	workers int,
 	spooldir string,
+	mapping map[string]events.Atomic,
 ) (<-chan *consumer.Message, *utils.ErrChan) {
 	tx := make(chan *consumer.Message, 0)
 	errs := utils.NewErrChan(100, "Event parse worker runtime errors")
@@ -69,19 +70,21 @@ func spawnWorkers(
 	go func() {
 		defer close(tx)
 		defer close(errs.Items)
-		mapping := func() map[string]events.Atomic {
-			out := make(map[string]events.Atomic)
-			for _, event := range events.Atomics {
-				if src := viper.GetStringSlice(
-					fmt.Sprintf("stream.%s.kafka.topic", event.String()),
-				); len(src) > 0 {
-					for _, item := range src {
-						out[item] = event
+		/*
+			mapping := func() map[string]events.Atomic {
+				out := make(map[string]events.Atomic)
+				for _, event := range events.Atomics {
+					if src := viper.GetStringSlice(
+						fmt.Sprintf("stream.%s.kafka.topic", event.String()),
+					); len(src) > 0 {
+						for _, item := range src {
+							out[item] = event
+						}
 					}
 				}
-			}
-			return out
-		}()
+				return out
+			}()
+		*/
 		kafkaTopicToEvent := func(topic string) events.Atomic {
 			if val, ok := mapping[topic]; ok {
 				return val

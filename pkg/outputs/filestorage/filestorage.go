@@ -58,8 +58,7 @@ type Handle struct {
 	timestamp bool
 	gzip      bool
 
-	rotateEnabled  bool
-	rotateInterval time.Duration
+	rotate *time.Ticker
 
 	wg *sync.WaitGroup
 }
@@ -69,14 +68,18 @@ func NewHandle(c *Config) (*Handle, error) {
 		return nil, err
 	}
 	return &Handle{
-		errs:           utils.NewErrChan(100, "filestorage handle"),
-		rx:             c.Stream,
-		timestamp:      c.Timestamp,
-		gzip:           c.Gzip,
-		combined:       c.Combined,
-		wg:             &sync.WaitGroup{},
-		rotateEnabled:  c.RotateEnabled,
-		rotateInterval: c.RotateInterval,
+		errs:      utils.NewErrChan(100, "filestorage handle"),
+		rx:        c.Stream,
+		timestamp: c.Timestamp,
+		gzip:      c.Gzip,
+		combined:  c.Combined,
+		wg:        &sync.WaitGroup{},
+		rotate: func() *time.Ticker {
+			if c.RotateEnabled {
+				return time.NewTicker(c.RotateInterval)
+			}
+			return nil
+		}(),
 	}, nil
 }
 
@@ -99,12 +102,16 @@ func (h *Handle) Do(ctx context.Context) error {
 	}()
 
 	if h.combined != "" {
-		now := time.Now()
-		if err := writeSingleFile(filenameFunc(
-			now,
-			h.combined,
-		), *h.errs, h.rx, h.gzip, ctx, h.wg); err != nil {
-			return err
+		if h.rotate != nil {
+
+		} else {
+			now := time.Now()
+			if err := writeSingleFile(filenameFunc(
+				now,
+				h.combined,
+			), *h.errs, h.rx, h.gzip, ctx, h.wg); err != nil {
+				return err
+			}
 		}
 	}
 
