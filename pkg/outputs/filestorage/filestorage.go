@@ -125,8 +125,10 @@ func (h *Handle) Do(ctx context.Context) error {
 	}
 	go func() {
 		defer func() {
-			for _, ch := range h.filterChannels {
-				close(ch)
+			if h.filterChannels != nil {
+				for _, ch := range h.filterChannels {
+					close(ch)
+				}
 			}
 		}()
 		defer close(combineCh)
@@ -173,6 +175,7 @@ func (h *Handle) Do(ctx context.Context) error {
 
 			case <-ctx.Done():
 				break loop
+				//case _, ok := <-h.rotate.C:
 			}
 		}
 		log.Trace("filestorage filter loop good exit")
