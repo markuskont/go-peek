@@ -190,6 +190,11 @@ func initProcessorConfig() {
 	rootCmd.PersistentFlags().Int("processor-inputs-redis-db", 0,
 		`Redis database for collecting asset and threat intel.`)
 	viper.BindPFlag("processor.inputs.redis.db", rootCmd.PersistentFlags().Lookup("processor-inputs-redis-db"))
+
+	rootCmd.PersistentFlags().Bool("processor-sigma-enabled", false,
+		`Anonymize messages. Simple method by replacing host names with aliases`)
+	viper.BindPFlag("processor.sigma.enabled", rootCmd.PersistentFlags().Lookup("processor-sigma-enabled"))
+
 }
 
 func initOutputConfig() {
