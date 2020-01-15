@@ -199,7 +199,6 @@ func initProcessorConfig() {
 		`Directories that contains sigma rules. Multiple directories can be defined. `+
 			`Each directory will be scored recursively for files with "yml" suffix.`)
 	viper.BindPFlag("processor.sigma.dir", rootCmd.PersistentFlags().Lookup("processor-sigma-dir"))
-
 }
 
 func initOutputConfig() {
