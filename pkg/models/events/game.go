@@ -39,6 +39,16 @@ type DynamicWinlogbeat struct {
 	GameMeta meta.GameAsset `json:"GameMeta,omitempty"`
 }
 
+// GetMessage implements MessageGetter
+func (d *DynamicWinlogbeat) GetMessage() []string {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetField returns a success status and arbitrary field content if requested map key is present
+func (d *DynamicWinlogbeat) GetField(_ string) (interface{}, bool) {
+	panic("not implemented") // TODO: Implement
+}
+
 // Time implements atomic.Event
 // Timestamp in event, should default to time.Time{} so time.IsZero() could be used to verify success
 func (d DynamicWinlogbeat) Time() time.Time { return d.DynamicWinlogbeat.Time() }
@@ -87,6 +97,16 @@ type Suricata struct {
 	atomic.StaticSuricataEve
 	Syslog   *atomic.Syslog `json:"syslog,omitempty"`
 	GameMeta meta.GameAsset `json:"GameMeta,omitempty"`
+}
+
+// GetMessage implements MessageGetter
+func (s *Suricata) GetMessage() []string {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetField returns a success status and arbitrary field content if requested map key is present
+func (s *Suricata) GetField(_ string) (interface{}, bool) {
+	panic("not implemented") // TODO: Implement
 }
 
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal
@@ -157,6 +177,16 @@ type Syslog struct {
 	GameMeta meta.GameAsset `json:"GameMeta,omitempty"`
 }
 
+// GetMessage implements MessageGetter
+func (s *Syslog) GetMessage() []string {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetField returns a success status and arbitrary field content if requested map key is present
+func (s *Syslog) GetField(_ string) (interface{}, bool) {
+	panic("not implemented") // TODO: Implement
+}
+
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal
 func (s Syslog) JSONFormat() ([]byte, error) { return json.Marshal(s) }
 
@@ -203,6 +233,16 @@ type Snoopy struct {
 	atomic.Snoopy
 	Syslog   atomic.Syslog  `json:"syslog"`
 	GameMeta meta.GameAsset `json:"GameMeta,omitempty"`
+}
+
+// GetMessage implements MessageGetter
+func (s *Snoopy) GetMessage() []string {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetField returns a success status and arbitrary field content if requested map key is present
+func (s *Snoopy) GetField(_ string) (interface{}, bool) {
+	panic("not implemented") // TODO: Implement
 }
 
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal
@@ -275,6 +315,16 @@ type Eventlog struct {
 	GameMeta meta.GameAsset `json:"GameMeta,omitempty"`
 }
 
+// GetMessage implements MessageGetter
+func (e *Eventlog) GetMessage() []string {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetField returns a success status and arbitrary field content if requested map key is present
+func (e *Eventlog) GetField(_ string) (interface{}, bool) {
+	panic("not implemented") // TODO: Implement
+}
+
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal
 func (e Eventlog) JSONFormat() ([]byte, error) {
 	data := e.EventLog.DynamicEventLog
@@ -321,6 +371,16 @@ func (e Eventlog) Sender() string { return e.EventLog.Sender() }
 type ZeekCobalt struct {
 	atomic.ZeekCobalt
 	GameMeta meta.GameAsset `json:"GameMeta,omitempty"`
+}
+
+// GetMessage implements MessageGetter
+func (z *ZeekCobalt) GetMessage() []string {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetField returns a success status and arbitrary field content if requested map key is present
+func (z *ZeekCobalt) GetField(_ string) (interface{}, bool) {
+	panic("not implemented") // TODO: Implement
 }
 
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal
@@ -374,6 +434,16 @@ func (z ZeekCobalt) Sender() string { return z.ZeekCobalt.Sender() }
 type MazeRunner struct {
 	atomic.MazeRunner
 	GameMeta meta.GameAsset `json:"GameMeta,omitempty"`
+}
+
+// GetMessage implements MessageGetter
+func (m *MazeRunner) GetMessage() []string {
+	panic("not implemented") // TODO: Implement
+}
+
+// GetField returns a success status and arbitrary field content if requested map key is present
+func (m *MazeRunner) GetField(_ string) (interface{}, bool) {
+	panic("not implemented") // TODO: Implement
 }
 
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal

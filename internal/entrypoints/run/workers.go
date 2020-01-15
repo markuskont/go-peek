@@ -14,6 +14,7 @@ import (
 	"github.com/ccdcoe/go-peek/pkg/models/meta"
 	"github.com/ccdcoe/go-peek/pkg/parsers"
 	"github.com/ccdcoe/go-peek/pkg/utils"
+	"github.com/markuskont/go-sigma-rule-engine/pkg/sigma"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -67,6 +68,19 @@ func spawnWorkers(
 			}
 		}
 	}()
+	ruleset, checkRules := func() (*sigma.Ruleset, bool) {
+		if !viper.GetBool("processor.sigma.enabled") {
+			return nil, false
+		}
+		ruleset, err := sigma.NewRuleset(&sigma.Config{
+			Directories: viper.GetStringSlice("processor.sigma.dir"),
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return ruleset, true
+	}()
+
 	go func() {
 		defer close(tx)
 		defer close(errs.Items)
@@ -79,7 +93,7 @@ func spawnWorkers(
 		defer globalAssetCache.Close()
 		for i := 0; i < workers; i++ {
 			wg.Add(1)
-			go func(id int) {
+			go func(id int, ruleset sigma.RuleMap) {
 				defer wg.Done()
 				defer log.Tracef("worker %d done", id)
 				logContext := log.WithFields(log.Fields{
@@ -173,6 +187,12 @@ func spawnWorkers(
 							}
 						}
 					}
+					if ruleset != nil {
+						// TODO - viper.GetBool for firstmatch
+						if res, match := ruleset.Check(ev.(sigma.EventChecker), evParse.String(), false); match {
+							panic(res)
+						}
+					}
 
 					e.SetAsset(*m.SetDirection())
 					modified, err := e.JSONFormat()
@@ -183,7 +203,12 @@ func spawnWorkers(
 					msg.Data = modified
 					tx <- msg
 				}
-			}(i)
+			}(i, func() sigma.RuleMap {
+				if checkRules {
+					return ruleset.Rules.Clone()
+				}
+				return nil
+			}())
 		}
 		wg.Wait()
 	}()
