@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/ccdcoe/go-peek/pkg/models/atomic"
@@ -40,13 +41,17 @@ type DynamicWinlogbeat struct {
 }
 
 // GetMessage implements MessageGetter
-func (d *DynamicWinlogbeat) GetMessage() []string {
-	panic("not implemented") // TODO: Implement
+func (d DynamicWinlogbeat) GetMessage() []string {
+	m, ok := d.DynamicWinlogbeat["message"].(string)
+	if ok {
+		return []string{m}
+	}
+	return nil
 }
 
 // GetField returns a success status and arbitrary field content if requested map key is present
-func (d *DynamicWinlogbeat) GetField(_ string) (interface{}, bool) {
-	panic("not implemented") // TODO: Implement
+func (d DynamicWinlogbeat) GetField(key string) (interface{}, bool) {
+	return getField(key, d.DynamicWinlogbeat)
 }
 
 // Time implements atomic.Event
@@ -100,13 +105,72 @@ type Suricata struct {
 }
 
 // GetMessage implements MessageGetter
-func (s *Suricata) GetMessage() []string {
-	panic("not implemented") // TODO: Implement
+func (s Suricata) GetMessage() []string {
+	out := []string{s.PayloadPrintable}
+	if s.Alert != nil {
+		out = append(out, []string{s.Alert.Signature, s.Alert.Category}...)
+	}
+	return out
 }
 
 // GetField returns a success status and arbitrary field content if requested map key is present
-func (s *Suricata) GetField(_ string) (interface{}, bool) {
-	panic("not implemented") // TODO: Implement
+func (s Suricata) GetField(key string) (interface{}, bool) {
+	if !strings.Contains(key, ".") {
+		return s.StaticSuricataEve.EveBase.GetField(key)
+	}
+	bits := strings.SplitN(key, ".", 1)
+	if len(bits) == 2 && strings.HasPrefix(bits[0], "alert") && s.Alert != nil {
+		return s.Alert.GetField(bits[1])
+	}
+	switch bits[0] {
+	case "alert":
+		if s.Alert != nil {
+			return s.Alert.GetField(bits[1])
+		}
+	case "ssh":
+		return getField(bits[1], s.SSH)
+	case "tls":
+		return getField(bits[1], s.TLS)
+	case "tcp":
+		return getField(bits[1], s.TCP)
+	case "dns":
+		return getField(bits[1], s.DNS)
+	case "http":
+		return getField(bits[1], s.HTTP)
+	case "rdp":
+		return getField(bits[1], s.RDP)
+	case "smb":
+		return getField(bits[1], s.SMB)
+	case "dhcp":
+		return getField(bits[1], s.DHCP)
+	case "snmp":
+		return getField(bits[1], s.SNMP)
+	case "tftp":
+		return getField(bits[1], s.TFTP)
+	case "sip":
+		return getField(bits[1], s.SIP)
+	case "ftp_data":
+		return getField(bits[1], s.FTPdata)
+	case "packet_info":
+		return getField(bits[1], s.PacketInfo)
+	case "traffic":
+		return getField(bits[1], s.Traffic)
+	case "fileinfo":
+		return getField(bits[1], s.Fileinfo)
+	case "flow":
+		return getField(bits[1], s.Flow)
+	case "krb5":
+		return getField(bits[1], s.Krb5)
+	case "ikev2":
+		return getField(bits[1], s.Ikev2)
+	case "tunnel":
+		return getField(bits[1], s.Tunnel)
+	case "metadata":
+		return getField(bits[1], s.Metadata)
+	case "anomaly":
+		return getField(bits[1], s.Anomaly)
+	}
+	return nil, false
 }
 
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal
