@@ -328,7 +328,7 @@ func (s Snoopy) GetField(key string) (interface{}, bool) {
 	case "login":
 		return s.Login, true
 	}
-	if strings.HasPrefix("ssh", key) && s.SSH != nil {
+	if s.SSH != nil && strings.HasPrefix("ssh", key) {
 		bits := strings.SplitN(key, ".", 1)
 		switch bits[1] {
 		case "dst_port", "dest_port", "dport":
