@@ -242,13 +242,13 @@ type Syslog struct {
 }
 
 // GetMessage implements MessageGetter
-func (s *Syslog) GetMessage() []string {
-	panic("not implemented") // TODO: Implement
+func (s Syslog) GetMessage() []string {
+	return []string{s.Syslog.Message}
 }
 
 // GetField returns a success status and arbitrary field content if requested map key is present
-func (s *Syslog) GetField(_ string) (interface{}, bool) {
-	panic("not implemented") // TODO: Implement
+func (s Syslog) GetField(key string) (interface{}, bool) {
+	return s.Syslog.GetField(key)
 }
 
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal
@@ -300,13 +300,52 @@ type Snoopy struct {
 }
 
 // GetMessage implements MessageGetter
-func (s *Snoopy) GetMessage() []string {
-	panic("not implemented") // TODO: Implement
+func (s Snoopy) GetMessage() []string {
+	return []string{s.Cmd}
 }
 
 // GetField returns a success status and arbitrary field content if requested map key is present
-func (s *Snoopy) GetField(_ string) (interface{}, bool) {
-	panic("not implemented") // TODO: Implement
+func (s Snoopy) GetField(key string) (interface{}, bool) {
+	switch key {
+	case "cmd":
+		return s.Cmd, true
+	case "filename":
+		return s.Filename, true
+	case "cwd":
+		return s.Cwd, true
+	case "tty":
+		return s.Tty, true
+	case "sid":
+		return s.Sid, true
+	case "gid":
+		return s.Gid, true
+	case "group":
+		return s.Group, true
+	case "uid":
+		return s.UID, true
+	case "username":
+		return s.Username, true
+	case "login":
+		return s.Login, true
+	}
+	if strings.HasPrefix("ssh", key) && s.SSH != nil {
+		bits := strings.SplitN(key, ".", 1)
+		switch bits[1] {
+		case "dst_port", "dest_port", "dport":
+			return s.SSH.DstPort, true
+		case "dst_ip", "dest_ip":
+			if s.SSH.DstIP != nil {
+				return s.SSH.DstIP.IP.String(), true
+			}
+		case "src_port", "sport":
+			return s.SSH.SrcPort, true
+		case "src_ip":
+			if s.SSH.SrcIP != nil {
+				return s.SSH.SrcIP.IP.String(), true
+			}
+		}
+	}
+	return s.Syslog.GetField(key)
 }
 
 // JSONFormat implements atomic.JSONFormatter by wrapping json.Marshal
