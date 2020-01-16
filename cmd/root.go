@@ -192,13 +192,18 @@ func initProcessorConfig() {
 	viper.BindPFlag("processor.inputs.redis.db", rootCmd.PersistentFlags().Lookup("processor-inputs-redis-db"))
 
 	rootCmd.PersistentFlags().Bool("processor-sigma-enabled", false,
-		`Anonymize messages. Simple method by replacing host names with aliases`)
+		`Enable sigma rule engine.`)
 	viper.BindPFlag("processor.sigma.enabled", rootCmd.PersistentFlags().Lookup("processor-sigma-enabled"))
 
 	rootCmd.PersistentFlags().StringSlice("processor-sigma-dir", []string{},
 		`Directories that contains sigma rules. Multiple directories can be defined. `+
 			`Each directory will be scored recursively for files with "yml" suffix.`)
 	viper.BindPFlag("processor.sigma.dir", rootCmd.PersistentFlags().Lookup("processor-sigma-dir"))
+
+	rootCmd.PersistentFlags().Bool("processor-sigma-quickmatch", false,
+		`Stop matching on event upon first positive result. `+
+			`Otherwise whole rule group will be checked for each event belonging to that group.`)
+	viper.BindPFlag("processor.sigma.quickmatch", rootCmd.PersistentFlags().Lookup("processor-sigma-quickmatch"))
 }
 
 func initOutputConfig() {

@@ -93,7 +93,7 @@ func spawnWorkers(
 		defer globalAssetCache.Close()
 		for i := 0; i < workers; i++ {
 			wg.Add(1)
-			go func(id int, ruleset sigma.RuleMap) {
+			go func(id int, ruleset sigma.RuleMap, quickmatch bool) {
 				defer wg.Done()
 				defer log.Tracef("worker %d done", id)
 				logContext := log.WithFields(log.Fields{
@@ -188,8 +188,7 @@ func spawnWorkers(
 						}
 					}
 					if ruleset != nil {
-						// TODO - viper.GetBool for firstmatch
-						if res, match := ruleset.Check(ev.(sigma.EventChecker), evParse.String(), false); match {
+						if res, match := ruleset.Check(ev.(sigma.EventChecker), evParse.String(), quickmatch); match {
 							panic(res)
 						}
 					}
@@ -208,7 +207,7 @@ func spawnWorkers(
 					return ruleset.Rules.Clone()
 				}
 				return nil
-			}())
+			}(), viper.GetBool("procesor.sigma.quickmatch"))
 		}
 		wg.Wait()
 	}()
