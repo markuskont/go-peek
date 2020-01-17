@@ -45,8 +45,8 @@ func (m *MitreAttack) ParseSigmaTags(results sigma.Results) *MitreAttack {
 
 	for _, res := range results {
 		for _, tag := range res.Tags {
-			if strings.HasPrefix(tag, "attack.") {
-				if id := strings.Split(tag, "."); len(id) == 2 {
+			if strings.HasPrefix(tag, "attack.t") {
+				if id := strings.Split(tag, "."); len(id) == 2 && len(id[1]) == 5 {
 					m.Techniques = append(m.Techniques, Technique{
 						ID: strings.ToUpper(id[1]),
 					})
