@@ -235,6 +235,9 @@ func spawnWorkers(
 					if emit && (m.MitreAttack != nil || m.SigmaResults != nil) {
 						m.EventData = e.DumpEventData()
 					}
+					if m.SigmaResults != nil {
+						m.MitreAttack.ParseSigmaTags(m.SigmaResults)
+					}
 					e.SetAsset(*m.SetDirection())
 
 					modified, err := e.JSONFormat()
