@@ -250,6 +250,7 @@ func spawnWorkers(
 					if len(m.MitreAttack.Techniques) == 0 {
 						m.MitreAttack = nil
 					}
+					m.EventType = evType.String()
 					e.SetAsset(*m.SetDirection())
 
 					modified, err := e.JSONFormat()
