@@ -93,7 +93,7 @@ func (d DynamicWinlogbeat) MitreAttack() *meta.MitreAttack {
 				if id := strings.Split(bits[0], "="); len(id) == 2 {
 					technique.ID = id[1]
 					if !strings.HasPrefix(strings.ToLower(technique.ID), "t") {
-						technique.ID = "t" + technique.ID
+						technique.ID = "T" + technique.ID
 					}
 				}
 				if name := strings.Split(bits[1], "="); len(name) == 2 {
