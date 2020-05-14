@@ -1,7 +1,6 @@
 package run
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -16,11 +15,14 @@ import (
 	"github.com/ccdcoe/go-peek/pkg/models/meta"
 	"github.com/ccdcoe/go-peek/pkg/parsers"
 	"github.com/ccdcoe/go-peek/pkg/utils"
-	"github.com/markuskont/go-sigma-rule-engine/pkg/sigma"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/markuskont/go-sigma-rule-engine/pkg/sigma/v1"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 func spawnWorkers(
 	rx <-chan *consumer.Message,

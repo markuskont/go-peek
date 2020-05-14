@@ -109,6 +109,9 @@ func getField(key string, data map[string]interface{}) (interface{}, bool) {
 		return nil, false
 	}
 	bits := strings.SplitN(key, ".", 2)
+	if len(bits) == 0 {
+		return nil, false
+	}
 	if val, ok := data[bits[0]]; ok {
 		switch res := val.(type) {
 		case map[string]interface{}:

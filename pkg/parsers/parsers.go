@@ -1,14 +1,16 @@
 package parsers
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/ccdcoe/go-peek/pkg/models/atomic"
 	"github.com/ccdcoe/go-peek/pkg/models/consumer"
 	"github.com/ccdcoe/go-peek/pkg/models/events"
 	"github.com/influxdata/go-syslog/rfc5424"
+	jsoniter "github.com/json-iterator/go"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 func Parse(data []byte, enum events.Atomic, p consumer.Parser) (interface{}, error) {
 	if p == consumer.RFC5424 {
